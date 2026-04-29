@@ -1,6 +1,7 @@
 import {
   makeWASocket,
   DisconnectReason,
+  fetchLatestBaileysVersion,
   useMultiFileAuthState,
   type WASocket,
   type ConnectionState,
@@ -31,10 +32,15 @@ export async function startWAClient(
   fs.mkdirSync(config.sessionDir, { recursive: true });
   const { state, saveCreds } = await useMultiFileAuthState(config.sessionDir);
 
+  // Pin to whatever WA Web version is current right now. Without this, Baileys
+  // uses a hardcoded version that WA rejects with 405 once they ship updates.
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`[wa] using WA Web version ${version.join('.')} (isLatest=${isLatest})`);
+
   const sock = makeWASocket({
+    version,
     auth: state,
     logger,
-    printQRInTerminal: false,
     syncFullHistory: false,
     markOnlineOnConnect: false,
   });
