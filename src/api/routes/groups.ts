@@ -17,6 +17,7 @@ const groupSchema = z.object({
   maxAudioSeconds: z.number().int().positive().default(120),
   monthlyBudgetCents: z.number().int().nonnegative().default(500),
   createdByNinja: z.boolean().default(false),
+  autoApproved: z.boolean().default(false),
   inviteLink: z.string().nullable().default(null),
   notes: z.string().nullable().default(null),
 });
@@ -103,6 +104,7 @@ export function groupsRoutes(ctx: AdminCtx) {
       maxAudioSeconds: 120,
       monthlyBudgetCents: 500,
       createdByNinja: true,
+      autoApproved: false,
       inviteLink: created.inviteLink,
       notes: null,
       lastTranslatedAt: null,

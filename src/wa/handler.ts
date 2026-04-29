@@ -1,7 +1,7 @@
 import { downloadMediaMessage, type WAMessage, type WASocket } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
 import { config } from '../config.js';
-import { repo, type Group } from '../db/index.js';
+import { repo, openMode, type Group } from '../db/index.js';
 import { translate, flagFor } from '../translator/gemini.js';
 import { audioPath } from './client.js';
 import { alert } from '../alerts.js';
@@ -28,10 +28,14 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   const senderName = msg.pushName ?? null;
   const waMessageId = msg.key.id ?? `${Date.now()}`;
 
-  const group = repo.getGroup(remoteJid);
+  let group = repo.getGroup(remoteJid);
   if (!group) {
-    await trackPending(sock, remoteJid, msg, senderJid, senderName);
-    return;
+    if (openMode.isEnabled() && !repo.isRejected(remoteJid)) {
+      group = await autoApproveForOpenMode(sock, remoteJid);
+    } else {
+      await trackPending(sock, remoteJid, msg, senderJid, senderName);
+      return;
+    }
   }
   if (!group.enabled) return;
 
@@ -227,6 +231,39 @@ function formatReply(group: Group, result: Awaited<ReturnType<typeof translate>>
     if (t) lines.push(`${flagFor(lang)} ${t}`);
   }
   return lines.join('\n');
+}
+
+async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Group> {
+  let label = `(open mode) ${jid}`;
+  try {
+    const meta = await sock.groupMetadata(jid);
+    if (meta?.subject) label = `(open mode) ${meta.subject}`;
+  } catch {
+    /* metadata may not be available yet; fine */
+  }
+  const langs = openMode.defaultLanguages();
+  const g: Group = {
+    jid,
+    label,
+    targetLanguages: langs,
+    enabled: true,
+    voiceTranslate: true,
+    textTranslateOnMention: true,
+    conciseMode: false,
+    showSourceLabel: true,
+    showProcessingReaction: false,
+    maxAudioSeconds: 120,
+    monthlyBudgetCents: 100, // tighter cap for unknown groups
+    createdByNinja: false,
+    autoApproved: true,
+    inviteLink: null,
+    notes: 'Auto-approved by open mode. Review and either keep or remove.',
+    lastTranslatedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  repo.upsertGroup(g);
+  console.log(`[open-mode] auto-approved ${jid} as "${label}" with langs ${langs.join(',')}`);
+  return g;
 }
 
 async function trackPending(

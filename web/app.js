@@ -26,6 +26,9 @@ function app() {
     createForm: { subject: '', label: '', languagesText: '', seedJid: '' },
     createResult: null,
 
+    openModeForm: { enabled: false, languagesText: 'en,th' },
+    openModeSavedAt: null,
+
     pg: {
       languagesText: 'en,th',
       conciseMode: false,
@@ -60,6 +63,11 @@ function app() {
       this.pending = inboxR.pending || [];
       this.groups = groupsR.groups || [];
       this.usage = usageR;
+
+      if (sysR.openMode) {
+        this.openModeForm.enabled = !!sysR.openMode.enabled;
+        this.openModeForm.languagesText = (sysR.openMode.defaultLanguages || ['en','th']).join(',');
+      }
 
       for (const p of this.pending) {
         if (!this.forms[p.jid]) {
@@ -190,6 +198,25 @@ function app() {
       }));
       if (!res.ok) return alert('Create failed: ' + (await res.text()));
       this.createResult = await res.json();
+      await this.refresh();
+    },
+
+    async saveOpenMode() {
+      if (this.openModeForm.enabled) {
+        const ok = confirm('Open mode bypasses the allowlist - any group that adds the bot starts getting translations. Are you sure you want to enable this?');
+        if (!ok) { this.openModeForm.enabled = false; return; }
+      }
+      const langs = this.openModeForm.languagesText.split(',').map(s => s.trim()).filter(Boolean);
+      const res = await fetch(api('/api/system/open-mode'), J({
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: this.openModeForm.enabled, defaultLanguages: langs }),
+      }));
+      if (!res.ok) return alert('Save failed: ' + (await res.text()));
+      const j = await res.json();
+      this.openModeForm.enabled = j.enabled;
+      this.openModeForm.languagesText = j.defaultLanguages.join(',');
+      this.openModeSavedAt = new Date().toLocaleTimeString();
       await this.refresh();
     },
 

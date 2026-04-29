@@ -14,6 +14,20 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
 
+// Idempotent column migrations. CREATE TABLE IF NOT EXISTS won't add new
+// columns to an existing table; ALTER TABLE ADD COLUMN handles that.
+const migrations: { sql: string; ignoreIfExists?: boolean }[] = [
+  { sql: `ALTER TABLE groups ADD COLUMN auto_approved INTEGER NOT NULL DEFAULT 0`, ignoreIfExists: true },
+];
+for (const m of migrations) {
+  try {
+    db.exec(m.sql);
+  } catch (err: any) {
+    if (m.ignoreIfExists && /duplicate column name/i.test(err?.message ?? '')) continue;
+    throw err;
+  }
+}
+
 export type GroupRow = {
   jid: string;
   label: string;
@@ -27,6 +41,7 @@ export type GroupRow = {
   max_audio_seconds: number;
   monthly_budget_cents: number;
   created_by_ninja: number;
+  auto_approved: number;
   invite_link: string | null;
   notes: string | null;
   last_translated_at: string | null;
@@ -46,6 +61,7 @@ export type Group = {
   maxAudioSeconds: number;
   monthlyBudgetCents: number;
   createdByNinja: boolean;
+  autoApproved: boolean;
   inviteLink: string | null;
   notes: string | null;
   lastTranslatedAt: string | null;
@@ -66,6 +82,7 @@ function rowToGroup(r: GroupRow): Group {
     maxAudioSeconds: r.max_audio_seconds,
     monthlyBudgetCents: r.monthly_budget_cents,
     createdByNinja: !!r.created_by_ninja,
+    autoApproved: !!r.auto_approved,
     inviteLink: r.invite_link,
     notes: r.notes,
     lastTranslatedAt: r.last_translated_at,
@@ -79,10 +96,10 @@ const stmts = {
   upsertGroup: db.prepare(`
     INSERT INTO groups (jid, label, target_languages, enabled, voice_translate, text_translate_on_mention,
                         concise_mode, show_source_label, show_processing_reaction, max_audio_seconds,
-                        monthly_budget_cents, created_by_ninja, invite_link, notes)
+                        monthly_budget_cents, created_by_ninja, auto_approved, invite_link, notes)
     VALUES (@jid, @label, @target_languages, @enabled, @voice_translate, @text_translate_on_mention,
             @concise_mode, @show_source_label, @show_processing_reaction, @max_audio_seconds,
-            @monthly_budget_cents, @created_by_ninja, @invite_link, @notes)
+            @monthly_budget_cents, @created_by_ninja, @auto_approved, @invite_link, @notes)
     ON CONFLICT(jid) DO UPDATE SET
       label = excluded.label,
       target_languages = excluded.target_languages,
@@ -94,6 +111,7 @@ const stmts = {
       show_processing_reaction = excluded.show_processing_reaction,
       max_audio_seconds = excluded.max_audio_seconds,
       monthly_budget_cents = excluded.monthly_budget_cents,
+      auto_approved = excluded.auto_approved,
       invite_link = excluded.invite_link,
       notes = excluded.notes
   `),
@@ -145,6 +163,13 @@ const stmts = {
       audio_seconds_total = audio_seconds_total + COALESCE(excluded.audio_seconds_total, 0),
       cost_cents_total = cost_cents_total + excluded.cost_cents_total
   `),
+  getSetting: db.prepare<[string], { value: string }>('SELECT value FROM settings WHERE key = ?'),
+  upsertSetting: db.prepare(`
+    INSERT INTO settings (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `),
+
   monthCostForGroup: db.prepare<[string], { total: number }>(`
     SELECT COALESCE(SUM(cost_cents_total), 0) AS total
       FROM usage_daily
@@ -180,6 +205,7 @@ export const repo = {
       max_audio_seconds: g.maxAudioSeconds,
       monthly_budget_cents: g.monthlyBudgetCents,
       created_by_ninja: g.createdByNinja ? 1 : 0,
+      auto_approved: g.autoApproved ? 1 : 0,
       invite_link: g.inviteLink,
       notes: g.notes,
     });
@@ -264,5 +290,34 @@ export const repo = {
   },
   monthCostAll(): { group_jid: string; total: number }[] {
     return stmts.monthCostAll.all() as any;
+  },
+
+  getSetting<T>(key: string, fallback: T): T {
+    const row = stmts.getSetting.get(key);
+    if (!row) return fallback;
+    try {
+      return JSON.parse(row.value) as T;
+    } catch {
+      return fallback;
+    }
+  },
+  setSetting(key: string, value: unknown): void {
+    stmts.upsertSetting.run(key, JSON.stringify(value));
+  },
+};
+
+// Typed accessor for the open-mode feature flag (the only setting today).
+export const openMode = {
+  isEnabled(): boolean {
+    return repo.getSetting<boolean>('open_mode_enabled', false);
+  },
+  setEnabled(v: boolean): void {
+    repo.setSetting('open_mode_enabled', v);
+  },
+  defaultLanguages(): string[] {
+    return repo.getSetting<string[]>('open_mode_default_languages', ['en', 'th']);
+  },
+  setDefaultLanguages(langs: string[]): void {
+    repo.setSetting('open_mode_default_languages', langs);
   },
 };

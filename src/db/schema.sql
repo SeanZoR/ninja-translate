@@ -12,10 +12,18 @@ CREATE TABLE IF NOT EXISTS groups (
   max_audio_seconds            INTEGER NOT NULL DEFAULT 120,
   monthly_budget_cents         INTEGER NOT NULL DEFAULT 500,
   created_by_ninja             INTEGER NOT NULL DEFAULT 0,
+  auto_approved                INTEGER NOT NULL DEFAULT 0,  -- true if landed via open-mode
   invite_link                  TEXT,
   notes                        TEXT,
   last_translated_at           TEXT,
   created_at                   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Global key/value settings. Currently used by the open-mode feature flag.
+CREATE TABLE IF NOT EXISTS settings (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,           -- JSON-encoded
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Groups the bot has been added to but Sean has not yet approved.

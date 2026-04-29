@@ -49,6 +49,7 @@ export function inboxRoutes(ctx: AdminCtx) {
       maxAudioSeconds: args.maxAudioSeconds ?? 120,
       monthlyBudgetCents: args.monthlyBudgetCents ?? 500,
       createdByNinja: false,
+      autoApproved: false,
       inviteLink: null,
       notes: args.notes ?? null,
       lastTranslatedAt: null,

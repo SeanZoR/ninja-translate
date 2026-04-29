@@ -96,7 +96,10 @@
           <template x-for="g in groups" :key="g.jid">
             <tr>
               <td>
-                <div><strong x-text="g.label"></strong></div>
+                <div>
+                  <strong x-text="g.label"></strong>
+                  <span x-show="g.autoApproved" class="badge auto-badge">auto</span>
+                </div>
                 <code x-text="g.jid"></code>
               </td>
               <td x-text="g.targetLanguages.join(', ')"></td>
@@ -209,6 +212,31 @@
       <h2>System</h2>
       <p>Bot JID: <code x-text="botJid || '(not connected)'"></code></p>
       <p>Server time: <span x-text="serverNow"></span></p>
+
+      <div class="danger-zone" :class="{'danger-active': openModeForm.enabled}">
+        <h3>⚠️ Open mode <span class="danger-tag">DANGEROUS</span></h3>
+        <p class="hint">
+          When ON, the allowlist is bypassed. Any WhatsApp group the bot is added to
+          gets auto-approved with the default languages below and the bot starts translating
+          immediately. Auto-approved groups appear in the Groups tab marked
+          <span class="badge auto-badge">auto</span>. Tighter monthly cap (¢100) is applied as a guard.
+          Off by default. Turn off when done testing.
+        </p>
+        <form @submit.prevent="saveOpenMode()">
+          <label class="row">
+            <input type="checkbox" x-model="openModeForm.enabled" />
+            Enable open mode (allowlist bypassed)
+          </label>
+          <label>
+            Default languages for auto-approved groups (comma-separated ISO codes)
+            <input type="text" x-model="openModeForm.languagesText" placeholder="en,th,he,my" />
+          </label>
+          <div class="actions">
+            <button type="submit" class="primary">Save</button>
+            <span x-show="openModeSavedAt" class="success" x-text="'Saved at ' + openModeSavedAt"></span>
+          </div>
+        </form>
+      </div>
 
       <h3>Create group (secondary flow)</h3>
       <p class="hint">Use this only when a friend wants a brand-new group. Default flow is letting users add the bot to their existing groups.</p>
