@@ -66,7 +66,7 @@ export function inboxRoutes(ctx: AdminCtx) {
     const inviter = repo.getPending(jid)?.inviter_jid ?? null;
 
     try {
-      await leaveGroup(ctx.sock, jid);
+      await leaveGroup(ctx.sock(), jid);
     } catch (err) {
       console.error('[api] leaveGroup failed during reject', err);
     }

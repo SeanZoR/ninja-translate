@@ -5,6 +5,7 @@ async function main() {
   console.log('[login] session dir:', process.env.SESSION_DIR ?? '(default)');
   const client = await startWAClient({
     showQrInTerminal: true,
+    exitOnFirstClose: false,
     onConnected: (jid) => {
       console.log(`\n[login] connected. BOT_JID=${jid}`);
       console.log('[login] add this to Doppler: BOT_JID=' + jid);

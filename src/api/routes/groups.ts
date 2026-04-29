@@ -59,7 +59,7 @@ export function groupsRoutes(ctx: AdminCtx) {
     const jid = decodeURIComponent(c.req.param('jid'));
     const leaveOnDelete = c.req.query('leave') === 'true';
     if (leaveOnDelete) {
-      try { await leaveGroup(ctx.sock, jid); } catch (err) {
+      try { await leaveGroup(ctx.sock(), jid); } catch (err) {
         console.error('[api] leaveGroup failed', err);
       }
     }
@@ -69,7 +69,7 @@ export function groupsRoutes(ctx: AdminCtx) {
 
   r.post('/:jid/regenerate-invite', async (c) => {
     const jid = decodeURIComponent(c.req.param('jid'));
-    const link = await regenerateInviteLink(ctx.sock, jid);
+    const link = await regenerateInviteLink(ctx.sock(), jid);
     const g = repo.getGroup(jid);
     if (g) repo.upsertGroup({ ...g, inviteLink: link });
     return c.json({ inviteLink: link });
@@ -86,7 +86,7 @@ export function groupsRoutes(ctx: AdminCtx) {
       seedShouldLeaveAfter: z.boolean().default(true),
     });
     const args = schema.parse(body);
-    const created = await createGroup(ctx.sock, {
+    const created = await createGroup(ctx.sock(), {
       subject: args.subject,
       seedJid: args.seedJid,
       seedShouldLeaveAfter: args.seedShouldLeaveAfter,

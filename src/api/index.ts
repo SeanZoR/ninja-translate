@@ -15,7 +15,8 @@ import { systemRoutes } from './routes/system.js';
 import { playgroundRoutes } from './routes/playground.js';
 
 export type AdminCtx = {
-  sock: WASocket;
+  /** Returns the current Baileys socket. May change across reconnects. */
+  sock: () => WASocket;
   getBotJid: () => string | null;
 };
 
