@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS groups (
   concise_mode                 INTEGER NOT NULL DEFAULT 0,
   show_source_label            INTEGER NOT NULL DEFAULT 1,
   show_processing_reaction     INTEGER NOT NULL DEFAULT 0,
-  max_audio_seconds            INTEGER NOT NULL DEFAULT 120,
+  max_audio_seconds            INTEGER NOT NULL DEFAULT 600,
   monthly_budget_cents         INTEGER NOT NULL DEFAULT 500,
   created_by_ninja             INTEGER NOT NULL DEFAULT 0,
   auto_approved                INTEGER NOT NULL DEFAULT 0,  -- true if landed via open-mode

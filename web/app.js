@@ -108,7 +108,7 @@ function app() {
             conciseMode: false,
             showSourceLabel: true,
             showProcessingReaction: false,
-            maxAudioSeconds: 120,
+            maxAudioSeconds: 600,
             monthlyBudgetCents: 500,
             notes: '',
           };

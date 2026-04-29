@@ -81,7 +81,7 @@ curl -X PUT http://127.0.0.1:7878/api/groups/120363999999999999@g.us \
     "conciseMode": false,
     "showSourceLabel": true,
     "showProcessingReaction": false,
-    "maxAudioSeconds": 120,
+    "maxAudioSeconds": 600,
     "monthlyBudgetCents": 500,
     "createdByNinja": false,
     "inviteLink": null,
@@ -182,7 +182,7 @@ Now we're putting real messages through the real bot. **Do this only after Layer
 
 ### 3.5 Pre-flight cost guard
 
-12. Record (or fake) a 3-minute voice message. Default `max_audio_seconds=120`, so this should be skipped.
+12. Record (or fake) an 11-minute voice message. Default `max_audio_seconds=600`, so this should be skipped.
 13. Bot reacts with ⏱️ on the message; no reply text; no row in `messages` table.
 
 **Pass criteria**: long voice gets the clock reaction and no Gemini call.

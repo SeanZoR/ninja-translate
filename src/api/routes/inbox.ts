@@ -46,7 +46,7 @@ export function inboxRoutes(ctx: AdminCtx) {
       conciseMode: args.conciseMode ?? false,
       showSourceLabel: args.showSourceLabel ?? true,
       showProcessingReaction: args.showProcessingReaction ?? false,
-      maxAudioSeconds: args.maxAudioSeconds ?? 120,
+      maxAudioSeconds: args.maxAudioSeconds ?? 600,
       monthlyBudgetCents: args.monthlyBudgetCents ?? 500,
       createdByNinja: false,
       autoApproved: false,

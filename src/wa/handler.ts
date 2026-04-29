@@ -273,7 +273,7 @@ async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Grou
     conciseMode: false,
     showSourceLabel: true,
     showProcessingReaction: false,
-    maxAudioSeconds: 120,
+    maxAudioSeconds: 600,
     monthlyBudgetCents: 100, // tighter cap for unknown groups
     createdByNinja: false,
     autoApproved: true,
