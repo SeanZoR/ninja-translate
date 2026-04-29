@@ -57,9 +57,21 @@
             <label>Label
               <input type="text" x-model="forms[p.jid].label" placeholder="e.g., Smith family" required />
             </label>
-            <label>Languages (comma-separated ISO codes, e.g., en,th,my)
-              <input type="text" x-model="forms[p.jid].languagesText" placeholder="en,th" required />
-            </label>
+            <div class="lang-picker-wrap">
+              <span class="lang-picker-label">Languages spoken in this group</span>
+              <div class="lang-picker">
+                <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+                  <button type="button"
+                    class="lang-pill"
+                    :class="{selected: forms[p.jid].selectedLangs.includes(lang.code)}"
+                    @click="toggleLang(forms[p.jid].selectedLangs, lang.code)">
+                    <span x-text="lang.flag"></span>
+                    <span x-text="lang.name"></span>
+                    <span class="lang-pill-code" x-text="lang.code"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
             <details>
               <summary>Advanced</summary>
               <label class="row"><input type="checkbox" x-model="forms[p.jid].conciseMode" /> Concise mode (skip source transcript)</label>
@@ -127,9 +139,21 @@
       </p>
 
       <form @submit.prevent="runPlayground()" class="playground">
-        <label>Languages (comma-separated ISO codes)
-          <input type="text" x-model="pg.languagesText" placeholder="en,th,he,my" required />
-        </label>
+        <div class="lang-picker-wrap">
+          <span class="lang-picker-label">Languages</span>
+          <div class="lang-picker">
+            <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+              <button type="button"
+                class="lang-pill"
+                :class="{selected: pg.selectedLangs.includes(lang.code)}"
+                @click="toggleLang(pg.selectedLangs, lang.code)">
+                <span x-text="lang.flag"></span>
+                <span x-text="lang.name"></span>
+                <span class="lang-pill-code" x-text="lang.code"></span>
+              </button>
+            </template>
+          </div>
+        </div>
 
         <div class="row-group">
           <label class="row"><input type="checkbox" x-model="pg.conciseMode" /> Concise mode</label>
@@ -227,10 +251,21 @@
             <input type="checkbox" x-model="openModeForm.enabled" />
             Enable open mode (allowlist bypassed)
           </label>
-          <label>
-            Default languages for auto-approved groups (comma-separated ISO codes)
-            <input type="text" x-model="openModeForm.languagesText" placeholder="en,th,he,my" />
-          </label>
+          <div class="lang-picker-wrap">
+            <span class="lang-picker-label">Default languages for auto-approved groups</span>
+            <div class="lang-picker">
+              <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+                <button type="button"
+                  class="lang-pill"
+                  :class="{selected: openModeForm.selectedLangs.includes(lang.code)}"
+                  @click="toggleLang(openModeForm.selectedLangs, lang.code)">
+                  <span x-text="lang.flag"></span>
+                  <span x-text="lang.name"></span>
+                  <span class="lang-pill-code" x-text="lang.code"></span>
+                </button>
+              </template>
+            </div>
+          </div>
           <div class="actions">
             <button type="submit" class="primary">Save</button>
             <span x-show="openModeSavedAt" class="success" x-text="'Saved at ' + openModeSavedAt"></span>
@@ -247,9 +282,21 @@
         <label>Label
           <input type="text" x-model="createForm.label" required />
         </label>
-        <label>Languages (comma-separated)
-          <input type="text" x-model="createForm.languagesText" placeholder="en,th" required />
-        </label>
+        <div class="lang-picker-wrap">
+          <span class="lang-picker-label">Languages</span>
+          <div class="lang-picker">
+            <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+              <button type="button"
+                class="lang-pill"
+                :class="{selected: createForm.selectedLangs.includes(lang.code)}"
+                @click="toggleLang(createForm.selectedLangs, lang.code)">
+                <span x-text="lang.flag"></span>
+                <span x-text="lang.name"></span>
+                <span class="lang-pill-code" x-text="lang.code"></span>
+              </button>
+            </template>
+          </div>
+        </div>
         <label>Seed JID (someone with WhatsApp - they'll be added then removed)
           <input type="text" x-model="createForm.seedJid" placeholder="972...@s.whatsapp.net" required />
         </label>
@@ -269,9 +316,21 @@
             <label>Label
               <input type="text" x-model="current.label" required />
             </label>
-            <label>Languages (comma-separated)
-              <input type="text" x-model="settingsLanguagesText" required />
-            </label>
+            <div class="lang-picker-wrap">
+              <span class="lang-picker-label">Languages</span>
+              <div class="lang-picker">
+                <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+                  <button type="button"
+                    class="lang-pill"
+                    :class="{selected: settingsLangs.includes(lang.code)}"
+                    @click="toggleLang(settingsLangs, lang.code)">
+                    <span x-text="lang.flag"></span>
+                    <span x-text="lang.name"></span>
+                    <span class="lang-pill-code" x-text="lang.code"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
             <label class="row"><input type="checkbox" x-model="current.enabled" /> Enabled</label>
             <label class="row"><input type="checkbox" x-model="current.voiceTranslate" /> Translate voice</label>
             <label class="row"><input type="checkbox" x-model="current.textTranslateOnMention" /> Translate text on @mention</label>

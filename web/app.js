@@ -10,6 +10,30 @@ const api = (path) => `${API_BASE}${path}`;
 // Always send the CF Access cookie when calling the API.
 const J = (init = {}) => ({ credentials: 'include', ...init });
 
+// Closed list of supported languages. Mirrors src/translator/gemini.ts LANGUAGE_NAMES + FLAGS.
+// `my` = Burmese (Myanmar). Adding more here surfaces them in the picker UI.
+const AVAILABLE_LANGUAGES = [
+  { code: 'en', name: 'English',    flag: '🇬🇧' },
+  { code: 'th', name: 'Thai',       flag: '🇹🇭' },
+  { code: 'he', name: 'Hebrew',     flag: '🇮🇱' },
+  { code: 'my', name: 'Burmese',    flag: '🇲🇲' },
+  { code: 'ms', name: 'Malay',      flag: '🇲🇾' },
+  { code: 'tl', name: 'Tagalog',    flag: '🇵🇭' },
+  { code: 'id', name: 'Indonesian', flag: '🇮🇩' },
+  { code: 'es', name: 'Spanish',    flag: '🇪🇸' },
+  { code: 'ru', name: 'Russian',    flag: '🇷🇺' },
+  { code: 'zh', name: 'Chinese',    flag: '🇨🇳' },
+  { code: 'fr', name: 'French',     flag: '🇫🇷' },
+  { code: 'de', name: 'German',     flag: '🇩🇪' },
+];
+
+// Parse "en,th,he" → ["en","th","he"] (trims + lowercases + dedupes).
+function parseLangCsv(s) {
+  return Array.from(new Set(
+    (s || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean),
+  ));
+}
+
 function app() {
   return {
     tab: 'inbox',
@@ -21,16 +45,23 @@ function app() {
     forms: {},
     modal: null,
     current: null,
-    settingsLanguagesText: '',
+    settingsLangs: [],
     messages: [],
-    createForm: { subject: '', label: '', languagesText: '', seedJid: '' },
+    createForm: { subject: '', label: '', selectedLangs: [], seedJid: '' },
     createResult: null,
 
-    openModeForm: { enabled: false, languagesText: 'en,th' },
+    openModeForm: { enabled: false, selectedLangs: ['en', 'th'] },
     openModeSavedAt: null,
 
+    AVAILABLE_LANGUAGES,
+    toggleLang(arr, code) {
+      const i = arr.indexOf(code);
+      if (i >= 0) arr.splice(i, 1);
+      else arr.push(code);
+    },
+
     pg: {
-      languagesText: 'en,th',
+      selectedLangs: ['en', 'th'],
       conciseMode: false,
       showSourceLabel: true,
       kind: 'text',
@@ -66,14 +97,14 @@ function app() {
 
       if (sysR.openMode) {
         this.openModeForm.enabled = !!sysR.openMode.enabled;
-        this.openModeForm.languagesText = (sysR.openMode.defaultLanguages || ['en','th']).join(',');
+        this.openModeForm.selectedLangs = (sysR.openMode.defaultLanguages || ['en', 'th']).slice();
       }
 
       for (const p of this.pending) {
         if (!this.forms[p.jid]) {
           this.forms[p.jid] = {
             label: p.subject || '',
-            languagesText: '',
+            selectedLangs: ['en'],
             conciseMode: false,
             showSourceLabel: true,
             showProcessingReaction: false,
@@ -87,8 +118,8 @@ function app() {
 
     async approve(p) {
       const f = this.forms[p.jid];
-      const target = f.languagesText.split(',').map(s => s.trim()).filter(Boolean);
-      if (target.length === 0) return alert('Enter at least one language code (e.g., en,th)');
+      const target = (f.selectedLangs || []).slice();
+      if (target.length === 0) return alert('Pick at least one language.');
       const res = await fetch(api('/api/inbox/' + encodeURIComponent(p.jid) + '/approve'), J({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -139,13 +170,13 @@ function app() {
 
     openSettings(g) {
       this.current = JSON.parse(JSON.stringify(g));
-      this.settingsLanguagesText = this.current.targetLanguages.join(',');
+      this.settingsLangs = (this.current.targetLanguages || []).slice();
       this.modal = 'settings';
     },
 
     async saveSettings() {
-      this.current.targetLanguages = this.settingsLanguagesText
-        .split(',').map(s => s.trim()).filter(Boolean);
+      if (this.settingsLangs.length === 0) return alert('Pick at least one language.');
+      this.current.targetLanguages = this.settingsLangs.slice();
       await this.saveGroup(this.current);
       this.modal = null;
       await this.refresh();
@@ -183,8 +214,8 @@ function app() {
     },
 
     async createGroup() {
-      const langs = this.createForm.languagesText.split(',').map(s => s.trim()).filter(Boolean);
-      if (!langs.length) return alert('Enter at least one language');
+      const langs = this.createForm.selectedLangs.slice();
+      if (!langs.length) return alert('Pick at least one language.');
       const res = await fetch(api('/api/groups/create'), J({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -206,7 +237,8 @@ function app() {
         const ok = confirm('Open mode bypasses the allowlist - any group that adds the bot starts getting translations. Are you sure you want to enable this?');
         if (!ok) { this.openModeForm.enabled = false; return; }
       }
-      const langs = this.openModeForm.languagesText.split(',').map(s => s.trim()).filter(Boolean);
+      const langs = this.openModeForm.selectedLangs.slice();
+      if (!langs.length) return alert('Pick at least one default language for open mode.');
       const res = await fetch(api('/api/system/open-mode'), J({
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -215,7 +247,7 @@ function app() {
       if (!res.ok) return alert('Save failed: ' + (await res.text()));
       const j = await res.json();
       this.openModeForm.enabled = j.enabled;
-      this.openModeForm.languagesText = j.defaultLanguages.join(',');
+      this.openModeForm.selectedLangs = (j.defaultLanguages || []).slice();
       this.openModeSavedAt = new Date().toLocaleTimeString();
       await this.refresh();
     },
@@ -280,8 +312,8 @@ function app() {
     },
 
     async runPlayground() {
-      const langs = this.pg.languagesText.split(',').map(s => s.trim()).filter(Boolean);
-      if (!langs.length) return alert('Enter at least one language');
+      const langs = this.pg.selectedLangs.slice();
+      if (!langs.length) return alert('Pick at least one language.');
       const body = this.pg.kind === 'text'
         ? { kind: 'text', text: this.pg.text, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel }
         : { kind: 'voice', audioBase64: this.pg.audioBase64, mimeType: this.pg.audioMimeType, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel };

@@ -113,6 +113,57 @@ legend { color: var(--muted); padding: 0 6px; }
 .audio-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .playground-result { margin-top: 24px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
 .playground-result h3 { margin-top: 16px; margin-bottom: 6px; }
+.lang-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.lang-picker-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.lang-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.lang-pill:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.lang-pill.selected {
+  background: rgba(116, 225, 192, 0.15);
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 500;
+}
+.lang-pill-code {
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.lang-pill.selected .lang-pill-code {
+  color: var(--accent);
+}
+
 .danger-zone {
   margin-top: 32px;
   padding: 16px;
