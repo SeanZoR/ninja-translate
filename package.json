@@ -1,0 +1,33 @@
+{
+  "name": "ninja-translate",
+  "version": "0.1.0",
+  "description": "WhatsApp bot that translates voice and @mentioned text across N languages per group",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --import tsx src/index.ts",
+    "login": "tsx scripts/login.ts",
+    "backup": "tsx scripts/backup.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@hono/node-server": "^1.13.0",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "better-sqlite3": "^11.5.0",
+    "hono": "^4.6.0",
+    "jose": "^5.9.6",
+    "pino": "^9.5.0",
+    "qrcode-terminal": "^0.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.9.0",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,24 @@
+[Unit]
+Description=Ninja Translate (WhatsApp voice + text translation)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ninja
+WorkingDirectory=/opt/ninja-translate
+ExecStart=/usr/bin/doppler run --project ninja-translate --config prd -- /usr/bin/node --import tsx src/index.ts
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/ninja-translate.log
+StandardError=append:/var/log/ninja-translate.log
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/ninja /var/log
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

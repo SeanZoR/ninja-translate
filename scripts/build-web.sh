@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Builds web/ for Cloudflare Pages deploy. Substitutes the API base URL into index.html.
+#
+# Usage:
+#   API_BASE=https://api.translate.your-domain.com ./scripts/build-web.sh
+#
+# Output: web-dist/  (deploy this directory with `wrangler pages deploy web-dist`)
+
+set -euo pipefail
+
+API_BASE="${API_BASE:-https://api.translate.your-domain.com}"
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$ROOT/web"
+DST="$ROOT/web-dist"
+
+rm -rf "$DST"
+cp -R "$SRC" "$DST"
+
+# Substitute the api-base meta tag content.
+sed -i.bak "s|<meta name=\"api-base\" content=\"\"|<meta name=\"api-base\" content=\"$API_BASE\"|" "$DST/index.html"
+rm -f "$DST/index.html.bak"
+
+echo "[build-web] API_BASE=$API_BASE"
+echo "[build-web] output: $DST"

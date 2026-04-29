@@ -1,0 +1,25 @@
+# Cloudflared config for the ninja-translate API tunnel.
+#
+# Path on VPS: /etc/cloudflared/config.yml
+# Credentials path: /etc/cloudflared/<TUNNEL_ID>.json (created by `cloudflared tunnel create`)
+#
+# Setup outline (on the VPS, as root or with sudo):
+#   1. curl -L https://pkg.cloudflare.com/cloudflared/cloudflared-linux-amd64.deb -o /tmp/cf.deb && dpkg -i /tmp/cf.deb
+#   2. cloudflared tunnel login                      # browser auth, picks the your-domain.com zone
+#   3. cloudflared tunnel create ninja-translate-api  # writes credentials JSON
+#   4. cp deploy/cloudflared.yml /etc/cloudflared/config.yml  (and edit TUNNEL_ID + credentials-file)
+#   5. cloudflared tunnel route dns ninja-translate-api api.translate.your-domain.com
+#   6. cloudflared service install                   # registers systemd unit
+#   7. systemctl enable --now cloudflared
+
+tunnel: TUNNEL_ID_REPLACE_ME
+credentials-file: /etc/cloudflared/TUNNEL_ID_REPLACE_ME.json
+
+# Only handle the API hostname; everything else is rejected.
+ingress:
+  - hostname: api.translate.your-domain.com
+    service: http://127.0.0.1:7878
+    originRequest:
+      noTLSVerify: false
+      connectTimeout: 30s
+  - service: http_status:404
