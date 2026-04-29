@@ -9,6 +9,7 @@ import { inboxRoutes } from './routes/inbox.js';
 import { messagesRoutes } from './routes/messages.js';
 import { usageRoutes } from './routes/usage.js';
 import { systemRoutes } from './routes/system.js';
+import { playgroundRoutes } from './routes/playground.js';
 
 export type AdminCtx = {
   sock: WASocket;
@@ -37,6 +38,7 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
   app.route('/api/messages', messagesRoutes(ctx));
   app.route('/api/usage', usageRoutes(ctx));
   app.route('/api/system', systemRoutes(ctx));
+  app.route('/api/playground', playgroundRoutes(ctx));
 
   serve({
     fetch: app.fetch,

@@ -14,10 +14,11 @@
   <header>
     <div class="brand">🥷 Ninja Translate</div>
     <nav>
-      <button :class="{active: tab === 'inbox'}"   @click="tab = 'inbox'">Inbox <span x-show="pending.length" class="pill" x-text="pending.length"></span></button>
-      <button :class="{active: tab === 'groups'}"  @click="tab = 'groups'">Groups</button>
-      <button :class="{active: tab === 'cost'}"    @click="tab = 'cost'">Cost</button>
-      <button :class="{active: tab === 'system'}"  @click="tab = 'system'">System</button>
+      <button :class="{active: tab === 'inbox'}"      @click="tab = 'inbox'">Inbox <span x-show="pending.length" class="pill" x-text="pending.length"></span></button>
+      <button :class="{active: tab === 'groups'}"     @click="tab = 'groups'">Groups</button>
+      <button :class="{active: tab === 'playground'}" @click="tab = 'playground'">Playground</button>
+      <button :class="{active: tab === 'cost'}"       @click="tab = 'cost'">Cost</button>
+      <button :class="{active: tab === 'system'}"     @click="tab = 'system'">System</button>
     </nav>
     <div class="status">
       <span x-show="botJid" class="ok">● connected</span>
@@ -112,6 +113,78 @@
         </tbody>
       </table>
       <div x-show="groups.length === 0" class="empty">No groups yet. Pending groups appear in the Inbox.</div>
+    </section>
+
+    <!-- PLAYGROUND -->
+    <section x-show="tab === 'playground'">
+      <h2>Playground</h2>
+      <p class="hint">
+        Try the translator end-to-end without WhatsApp. Pick languages, paste text or drop / record audio, get the exact reply the bot would post.
+        Nothing is persisted - costs here don't show up in the Cost tab.
+      </p>
+
+      <form @submit.prevent="runPlayground()" class="playground">
+        <label>Languages (comma-separated ISO codes)
+          <input type="text" x-model="pg.languagesText" placeholder="en,th,he,my" required />
+        </label>
+
+        <div class="row-group">
+          <label class="row"><input type="checkbox" x-model="pg.conciseMode" /> Concise mode</label>
+          <label class="row"><input type="checkbox" x-model="pg.showSourceLabel" /> Show <code>[lang: xx]</code> header</label>
+        </div>
+
+        <fieldset>
+          <legend>Input</legend>
+          <label class="row"><input type="radio" name="pgkind" value="text" x-model="pg.kind" /> Text</label>
+          <label class="row"><input type="radio" name="pgkind" value="voice" x-model="pg.kind" /> Voice</label>
+
+          <div x-show="pg.kind === 'text'">
+            <textarea x-model="pg.text" rows="3" placeholder="Type something in any of the group's languages..."></textarea>
+          </div>
+
+          <div x-show="pg.kind === 'voice'">
+            <div class="audio-controls">
+              <input type="file" accept="audio/*" @change="onAudioFile($event)" />
+              <span class="hint">or</span>
+              <button type="button" @click="toggleRecord()" x-text="pg.recording ? 'Stop' : 'Record'"></button>
+              <span x-show="pg.audioName" class="hint" x-text="'Loaded: ' + pg.audioName"></span>
+            </div>
+            <audio x-show="pg.audioPreviewUrl" :src="pg.audioPreviewUrl" controls></audio>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="primary" :disabled="pg.busy">
+            <span x-show="!pg.busy">Translate</span>
+            <span x-show="pg.busy">Working...</span>
+          </button>
+          <button type="button" @click="resetPlayground()">Reset</button>
+        </div>
+      </form>
+
+      <div x-show="pg.result" class="playground-result">
+        <h3>Rendered reply (what gets sent to the group)</h3>
+        <pre class="rendered" x-text="pg.result?.rendered"></pre>
+
+        <h3>Parsed</h3>
+        <table>
+          <tbody>
+            <tr><th>Detected source language</th><td><code x-text="pg.result?.sourceLang || '?'"></code></td></tr>
+            <tr><th>Source text</th><td x-text="pg.result?.sourceText || '(none)'"></td></tr>
+            <tr><th>Tokens in / out</th><td x-text="(pg.result?.tokensIn ?? 0) + ' / ' + (pg.result?.tokensOut ?? 0)"></td></tr>
+            <tr><th>Cost</th><td x-text="formatCents(pg.result?.costCents ?? 0)"></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Translations</h3>
+        <table>
+          <tbody>
+            <template x-for="(t, lang) in (pg.result?.translations || {})" :key="lang">
+              <tr><th x-text="lang"></th><td x-text="t"></td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- COST -->

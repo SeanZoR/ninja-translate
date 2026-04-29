@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:admin": "NINJA_ADMIN_ONLY=1 tsx watch src/index.ts",
     "start": "node --import tsx src/index.ts",
     "login": "tsx scripts/login.ts",
     "backup": "tsx scripts/backup.ts",
@@ -13,6 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.682.0",
     "@google/generative-ai": "^0.21.0",
     "@hono/node-server": "^1.13.0",
     "@whiskeysockets/baileys": "^6.7.9",

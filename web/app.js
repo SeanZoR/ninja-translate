@@ -26,6 +26,23 @@ function app() {
     createForm: { subject: '', label: '', languagesText: '', seedJid: '' },
     createResult: null,
 
+    pg: {
+      languagesText: 'en,th',
+      conciseMode: false,
+      showSourceLabel: true,
+      kind: 'text',
+      text: '',
+      audioBase64: null,
+      audioMimeType: null,
+      audioName: null,
+      audioPreviewUrl: null,
+      recording: false,
+      _recorder: null,
+      _chunks: [],
+      busy: false,
+      result: null,
+    },
+
     async init() {
       await this.refresh();
       setInterval(() => this.refresh(), 10000);
@@ -178,12 +195,109 @@ function app() {
 
     formatCents(c) {
       if (typeof c !== 'number') return '-';
-      return '¢' + c.toFixed(2);
+      return '¢' + c.toFixed(3);
     },
 
     labelFor(jid) {
       const g = this.groups.find(g => g.jid === jid);
       return g ? g.label : '';
     },
+
+    // ---- Playground ----
+
+    async onAudioFile(ev) {
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      this.pg.audioBase64 = bytesToBase64(new Uint8Array(buf));
+      this.pg.audioMimeType = file.type || 'audio/ogg';
+      this.pg.audioName = file.name;
+      this.pg.audioPreviewUrl = URL.createObjectURL(file);
+    },
+
+    async toggleRecord() {
+      if (this.pg.recording) {
+        this.pg._recorder?.stop();
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('Browser does not support audio recording.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mime = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+          ? 'audio/ogg;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm')
+            ? 'audio/webm'
+            : '';
+        const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        this.pg._chunks = [];
+        rec.ondataavailable = (e) => { if (e.data.size) this.pg._chunks.push(e.data); };
+        rec.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(this.pg._chunks, { type: rec.mimeType || 'audio/ogg' });
+          const buf = await blob.arrayBuffer();
+          this.pg.audioBase64 = bytesToBase64(new Uint8Array(buf));
+          this.pg.audioMimeType = blob.type || 'audio/ogg';
+          this.pg.audioName = `recorded-${new Date().toISOString().slice(11, 19)}.${blob.type.includes('webm') ? 'webm' : 'ogg'}`;
+          this.pg.audioPreviewUrl = URL.createObjectURL(blob);
+          this.pg.recording = false;
+        };
+        this.pg._recorder = rec;
+        rec.start();
+        this.pg.recording = true;
+      } catch (err) {
+        alert('Could not start recorder: ' + err);
+      }
+    },
+
+    async runPlayground() {
+      const langs = this.pg.languagesText.split(',').map(s => s.trim()).filter(Boolean);
+      if (!langs.length) return alert('Enter at least one language');
+      const body = this.pg.kind === 'text'
+        ? { kind: 'text', text: this.pg.text, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel }
+        : { kind: 'voice', audioBase64: this.pg.audioBase64, mimeType: this.pg.audioMimeType, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel };
+
+      if (this.pg.kind === 'text' && !this.pg.text) return alert('Type something first');
+      if (this.pg.kind === 'voice' && !this.pg.audioBase64) return alert('Upload or record audio first');
+
+      this.pg.busy = true;
+      this.pg.result = null;
+      try {
+        const res = await fetch(api('/api/playground/translate'), J({
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }));
+        if (!res.ok) {
+          const t = await res.text();
+          alert('Translate failed: ' + t);
+          return;
+        }
+        this.pg.result = await res.json();
+      } finally {
+        this.pg.busy = false;
+      }
+    },
+
+    resetPlayground() {
+      if (this.pg.audioPreviewUrl) URL.revokeObjectURL(this.pg.audioPreviewUrl);
+      this.pg.text = '';
+      this.pg.audioBase64 = null;
+      this.pg.audioMimeType = null;
+      this.pg.audioName = null;
+      this.pg.audioPreviewUrl = null;
+      this.pg.result = null;
+    },
   };
+}
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
 }

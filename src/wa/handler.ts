@@ -4,6 +4,9 @@ import { config } from '../config.js';
 import { repo, type Group } from '../db/index.js';
 import { translate, flagFor } from '../translator/gemini.js';
 import { audioPath } from './client.js';
+import { alert } from '../alerts.js';
+
+const budgetAlerted = new Map<string, string>(); // group_jid → YYYY-MM
 
 const REACT_PROCESSING = '🌐';
 const REACT_TOO_LONG = '⏱️';
@@ -36,6 +39,14 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   const monthCents = repo.monthCostForGroup(remoteJid);
   if (monthCents >= group.monthlyBudgetCents) {
     await react(sock, msg, REACT_BUDGET);
+    const month = new Date().toISOString().slice(0, 7);
+    if (budgetAlerted.get(remoteJid) !== month) {
+      budgetAlerted.set(remoteJid, month);
+      void alert(
+        `Group "${group.label}" hit monthly budget cap ` +
+        `(${monthCents.toFixed(2)}¢ / ${group.monthlyBudgetCents}¢). Pausing translations until next month or cap raise.`,
+      );
+    }
     return;
   }
 
