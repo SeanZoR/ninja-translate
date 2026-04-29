@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ninja Translate · Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- API_BASE_PLACEHOLDER: replaced by deploy step. Empty = same-origin (local dev). -->
+  <meta name="api-base" content="https://translate-api.your-domain.com" />
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body x-data="app()" x-init="init()">
+
+  <header>
+    <div class="brand">🥷 Ninja Translate</div>
+    <nav>
+      <button :class="{active: tab === 'inbox'}"      @click="tab = 'inbox'">Inbox <span x-show="pending.length" class="pill" x-text="pending.length"></span></button>
+      <button :class="{active: tab === 'groups'}"     @click="tab = 'groups'">Groups</button>
+      <button :class="{active: tab === 'playground'}" @click="tab = 'playground'">Playground</button>
+      <button :class="{active: tab === 'cost'}"       @click="tab = 'cost'">Cost</button>
+      <button :class="{active: tab === 'system'}"     @click="tab = 'system'">System</button>
+    </nav>
+    <div class="status">
+      <span x-show="botJid" class="ok">● connected</span>
+      <span x-show="!botJid" class="warn">● not connected</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- INBOX -->
+    <section x-show="tab === 'inbox'">
+      <h2>Pending groups</h2>
+      <p class="hint">Groups the bot was added to but not yet approved. The bot stays silent in pending groups.</p>
+      <div x-show="pending.length === 0" class="empty">No pending groups.</div>
+      <template x-for="p in pending" :key="p.jid">
+        <article class="card">
+          <div class="card-head">
+            <h3 x-text="p.subject || '(no subject)'"></h3>
+            <code x-text="p.jid"></code>
+          </div>
+          <div class="meta">
+            <span>Added by: <strong x-text="p.inviterName || p.inviterJid || 'unknown'"></strong></span>
+            <span>·</span>
+            <span x-text="'First seen ' + p.firstSeenAt"></span>
+            <span>·</span>
+            <span x-text="(p.participants?.length || 0) + ' participants'"></span>
+          </div>
+          <details>
+            <summary>Sample messages</summary>
+            <ul class="samples">
+              <template x-for="(s, i) in (p.sampleMessages || [])" :key="i">
+                <li><strong x-text="s.senderName || s.senderJid"></strong>: <span x-text="s.snippet"></span></li>
+              </template>
+            </ul>
+          </details>
+          <form @submit.prevent="approve(p)">
+            <label>Label
+              <input type="text" x-model="forms[p.jid].label" placeholder="e.g., Smith family" required />
+            </label>
+            <label>Languages (comma-separated ISO codes, e.g., en,th,my)
+              <input type="text" x-model="forms[p.jid].languagesText" placeholder="en,th" required />
+            </label>
+            <details>
+              <summary>Advanced</summary>
+              <label class="row"><input type="checkbox" x-model="forms[p.jid].conciseMode" /> Concise mode (skip source transcript)</label>
+              <label class="row"><input type="checkbox" x-model="forms[p.jid].showSourceLabel" /> Show <code>[lang: xx]</code> header</label>
+              <label class="row"><input type="checkbox" x-model="forms[p.jid].showProcessingReaction" /> 🌐 reaction on receipt</label>
+              <label>Max audio seconds
+                <input type="number" x-model.number="forms[p.jid].maxAudioSeconds" min="5" />
+              </label>
+              <label>Monthly budget (cents)
+                <input type="number" x-model.number="forms[p.jid].monthlyBudgetCents" min="0" />
+              </label>
+              <label>Notes
+                <textarea x-model="forms[p.jid].notes" rows="2"></textarea>
+              </label>
+            </details>
+            <div class="actions">
+              <button type="submit" class="primary">Approve</button>
+              <button type="button" @click="reject(p)" class="danger">Reject &amp; Leave</button>
+              <button type="button" @click="dismissPending(p)">Dismiss</button>
+            </div>
+          </form>
+        </article>
+      </template>
+    </section>
+
+    <!-- GROUPS -->
+    <section x-show="tab === 'groups'">
+      <h2>Allowlisted groups</h2>
+      <table x-show="groups.length">
+        <thead>
+          <tr><th>Label</th><th>Languages</th><th>Enabled</th><th>This month</th><th>Last activity</th><th></th></tr>
+        </thead>
+        <tbody>
+          <template x-for="g in groups" :key="g.jid">
+            <tr>
+              <td>
+                <div>
+                  <strong x-text="g.label"></strong>
+                  <span x-show="g.autoApproved" class="badge auto-badge">auto</span>
+                </div>
+                <code x-text="g.jid"></code>
+              </td>
+              <td x-text="g.targetLanguages.join(', ')"></td>
+              <td><label class="switch"><input type="checkbox" :checked="g.enabled" @change="toggleEnabled(g, $event.target.checked)" /></label></td>
+              <td x-text="formatCents(g.monthCostCents)"></td>
+              <td x-text="g.lastTranslatedAt || '-'"></td>
+              <td class="row-actions">
+                <button @click="openSettings(g)">Settings</button>
+                <button @click="openHistory(g)">History</button>
+                <button @click="leave(g)" class="danger">Leave</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div x-show="groups.length === 0" class="empty">No groups yet. Pending groups appear in the Inbox.</div>
+    </section>
+
+    <!-- PLAYGROUND -->
+    <section x-show="tab === 'playground'">
+      <h2>Playground</h2>
+      <p class="hint">
+        Try the translator end-to-end without WhatsApp. Pick languages, paste text or drop / record audio, get the exact reply the bot would post.
+        Nothing is persisted - costs here don't show up in the Cost tab.
+      </p>
+
+      <form @submit.prevent="runPlayground()" class="playground">
+        <label>Languages (comma-separated ISO codes)
+          <input type="text" x-model="pg.languagesText" placeholder="en,th,he,my" required />
+        </label>
+
+        <div class="row-group">
+          <label class="row"><input type="checkbox" x-model="pg.conciseMode" /> Concise mode</label>
+          <label class="row"><input type="checkbox" x-model="pg.showSourceLabel" /> Show <code>[lang: xx]</code> header</label>
+        </div>
+
+        <fieldset>
+          <legend>Input</legend>
+          <label class="row"><input type="radio" name="pgkind" value="text" x-model="pg.kind" /> Text</label>
+          <label class="row"><input type="radio" name="pgkind" value="voice" x-model="pg.kind" /> Voice</label>
+
+          <div x-show="pg.kind === 'text'">
+            <textarea x-model="pg.text" rows="3" placeholder="Type something in any of the group's languages..."></textarea>
+          </div>
+
+          <div x-show="pg.kind === 'voice'">
+            <div class="audio-controls">
+              <input type="file" accept="audio/*" @change="onAudioFile($event)" />
+              <span class="hint">or</span>
+              <button type="button" @click="toggleRecord()" x-text="pg.recording ? 'Stop' : 'Record'"></button>
+              <span x-show="pg.audioName" class="hint" x-text="'Loaded: ' + pg.audioName"></span>
+            </div>
+            <audio x-show="pg.audioPreviewUrl" :src="pg.audioPreviewUrl" controls></audio>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="primary" :disabled="pg.busy">
+            <span x-show="!pg.busy">Translate</span>
+            <span x-show="pg.busy">Working...</span>
+          </button>
+          <button type="button" @click="resetPlayground()">Reset</button>
+        </div>
+      </form>
+
+      <div x-show="pg.result" class="playground-result">
+        <h3>Rendered reply (what gets sent to the group)</h3>
+        <pre class="rendered" x-text="pg.result?.rendered"></pre>
+
+        <h3>Parsed</h3>
+        <table>
+          <tbody>
+            <tr><th>Detected source language</th><td><code x-text="pg.result?.sourceLang || '?'"></code></td></tr>
+            <tr><th>Source text</th><td x-text="pg.result?.sourceText || '(none)'"></td></tr>
+            <tr><th>Tokens in / out</th><td x-text="(pg.result?.tokensIn ?? 0) + ' / ' + (pg.result?.tokensOut ?? 0)"></td></tr>
+            <tr><th>Cost</th><td x-text="formatCents(pg.result?.costCents ?? 0)"></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Translations</h3>
+        <table>
+          <tbody>
+            <template x-for="(t, lang) in (pg.result?.translations || {})" :key="lang">
+              <tr><th x-text="lang"></th><td x-text="t"></td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- COST -->
+    <section x-show="tab === 'cost'">
+      <h2>This month</h2>
+      <p>Total: <strong x-text="formatCents(usage.totalCents || 0)"></strong></p>
+      <table x-show="usage.perGroup?.length">
+        <thead><tr><th>Group</th><th>Cents</th></tr></thead>
+        <tbody>
+          <template x-for="row in usage.perGroup || []" :key="row.group_jid">
+            <tr>
+              <td><code x-text="row.group_jid"></code> <span class="hint" x-text="labelFor(row.group_jid)"></span></td>
+              <td x-text="formatCents(row.total)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SYSTEM -->
+    <section x-show="tab === 'system'">
+      <h2>System</h2>
+      <p>Bot JID: <code x-text="botJid || '(not connected)'"></code></p>
+      <p>Server time: <span x-text="serverNow"></span></p>
+
+      <div class="danger-zone" :class="{'danger-active': openModeForm.enabled}">
+        <h3>⚠️ Open mode <span class="danger-tag">DANGEROUS</span></h3>
+        <p class="hint">
+          When ON, the allowlist is bypassed. Any WhatsApp group the bot is added to
+          gets auto-approved with the default languages below and the bot starts translating
+          immediately. Auto-approved groups appear in the Groups tab marked
+          <span class="badge auto-badge">auto</span>. Tighter monthly cap (¢100) is applied as a guard.
+          Off by default. Turn off when done testing.
+        </p>
+        <form @submit.prevent="saveOpenMode()">
+          <label class="row">
+            <input type="checkbox" x-model="openModeForm.enabled" />
+            Enable open mode (allowlist bypassed)
+          </label>
+          <label>
+            Default languages for auto-approved groups (comma-separated ISO codes)
+            <input type="text" x-model="openModeForm.languagesText" placeholder="en,th,he,my" />
+          </label>
+          <div class="actions">
+            <button type="submit" class="primary">Save</button>
+            <span x-show="openModeSavedAt" class="success" x-text="'Saved at ' + openModeSavedAt"></span>
+          </div>
+        </form>
+      </div>
+
+      <h3>Create group (secondary flow)</h3>
+      <p class="hint">Use this only when a friend wants a brand-new group. Default flow is letting users add the bot to their existing groups.</p>
+      <form @submit.prevent="createGroup()">
+        <label>Subject (group name)
+          <input type="text" x-model="createForm.subject" required />
+        </label>
+        <label>Label
+          <input type="text" x-model="createForm.label" required />
+        </label>
+        <label>Languages (comma-separated)
+          <input type="text" x-model="createForm.languagesText" placeholder="en,th" required />
+        </label>
+        <label>Seed JID (someone with WhatsApp - they'll be added then removed)
+          <input type="text" x-model="createForm.seedJid" placeholder="972...@s.whatsapp.net" required />
+        </label>
+        <button type="submit" class="primary">Create group</button>
+        <p x-show="createResult" class="success">
+          Created. Invite link: <a :href="createResult?.inviteLink" x-text="createResult?.inviteLink" target="_blank"></a>
+        </p>
+      </form>
+    </section>
+
+    <!-- MODAL: Settings -->
+    <div x-show="modal === 'settings' && current" class="modal" @click.self="modal = null">
+      <div class="modal-body" x-show="current">
+        <h2>Group settings</h2>
+        <template x-if="current">
+          <form @submit.prevent="saveSettings()">
+            <label>Label
+              <input type="text" x-model="current.label" required />
+            </label>
+            <label>Languages (comma-separated)
+              <input type="text" x-model="settingsLanguagesText" required />
+            </label>
+            <label class="row"><input type="checkbox" x-model="current.enabled" /> Enabled</label>
+            <label class="row"><input type="checkbox" x-model="current.voiceTranslate" /> Translate voice</label>
+            <label class="row"><input type="checkbox" x-model="current.textTranslateOnMention" /> Translate text on @mention</label>
+            <label class="row"><input type="checkbox" x-model="current.conciseMode" /> Concise mode</label>
+            <label class="row"><input type="checkbox" x-model="current.showSourceLabel" /> Show source label</label>
+            <label class="row"><input type="checkbox" x-model="current.showProcessingReaction" /> 🌐 reaction on receipt</label>
+            <label>Max audio seconds
+              <input type="number" x-model.number="current.maxAudioSeconds" min="5" />
+            </label>
+            <label>Monthly budget (cents)
+              <input type="number" x-model.number="current.monthlyBudgetCents" min="0" />
+            </label>
+            <label>Notes
+              <textarea x-model="current.notes" rows="2"></textarea>
+            </label>
+            <div x-show="current.inviteLink">
+              <p>Invite link: <a :href="current.inviteLink" x-text="current.inviteLink" target="_blank"></a></p>
+              <button type="button" @click="regenerate()">Regenerate</button>
+            </div>
+            <div class="actions">
+              <button type="submit" class="primary">Save</button>
+              <button type="button" @click="modal = null">Cancel</button>
+            </div>
+          </form>
+        </template>
+      </div>
+    </div>
+
+    <!-- MODAL: History -->
+    <div x-show="modal === 'history' && current" class="modal" @click.self="modal = null">
+      <div class="modal-body wide" x-show="current">
+        <h2>History · <span x-text="current?.label"></span></h2>
+        <div x-show="messages.length === 0" class="empty">No messages yet.</div>
+        <table x-show="messages.length">
+          <thead><tr><th>When</th><th>Sender</th><th>Kind</th><th>Source</th><th>Translations</th><th>¢</th></tr></thead>
+          <tbody>
+            <template x-for="m in messages" :key="m.id">
+              <tr>
+                <td x-text="m.created_at"></td>
+                <td x-text="m.sender_name || m.sender_jid"></td>
+                <td><span x-text="m.kind"></span><span x-show="m.audio_seconds" x-text="' (' + m.audio_seconds + 's)'"></span></td>
+                <td>
+                  <div><code x-text="m.source_lang || '?'"></code></div>
+                  <div x-text="m.source_text || ''"></div>
+                </td>
+                <td>
+                  <template x-for="(t, lang) in m.translations || {}" :key="lang">
+                    <div><code x-text="lang"></code> <span x-text="t"></span></div>
+                  </template>
+                </td>
+                <td x-text="m.cost_cents.toFixed(3)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <button @click="modal = null">Close</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

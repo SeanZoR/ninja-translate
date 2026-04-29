@@ -17,9 +17,8 @@ credentials-file: /etc/cloudflared/TUNNEL_ID_REPLACE_ME.json
 
 # Only handle the API hostname; everything else is rejected.
 ingress:
-  - hostname: api.translate.your-domain.com
+  - hostname: translate-api.your-domain.com    # single-level under your-domain.com - covered by CF Universal SSL
     service: http://127.0.0.1:7878
     originRequest:
-      noTLSVerify: false
       connectTimeout: 30s
   - service: http_status:404
