@@ -227,25 +227,31 @@ async function persistAndReply(
   });
   repo.touchGroup(group.jid);
 
-  const reply = formatReply(group, result);
+  const reply = formatReply(group, result, args.kind);
   if (!reply) return;
 
   await sock.sendMessage(group.jid, { text: reply }, { quoted: msg });
 }
 
-function formatReply(group: Group, result: Awaited<ReturnType<typeof translate>>): string | null {
+function formatReply(
+  group: Group,
+  result: Awaited<ReturnType<typeof translate>>,
+  kind: 'voice' | 'text',
+): string | null {
   if (Object.keys(result.translations).length === 0 && !result.sourceText) {
     return '[unintelligible]';
   }
 
   const lines: string[] = [];
-  if (group.showSourceLabel && result.sourceLang) {
-    lines.push(`[lang: ${result.sourceLang}]`);
+
+  // Show source line ONLY for voice messages (so the speaker can verify the
+  // transcription). For text @mentions the user already sees their own message
+  // above, so repeating it is just noise. Concise mode skips the transcript
+  // for voice too.
+  if (kind === 'voice' && !group.conciseMode && result.sourceLang && result.sourceText) {
+    lines.push(`${flagFor(result.sourceLang)} ${result.sourceText}`);
   }
-  if (!group.conciseMode && result.sourceText) {
-    lines.push(result.sourceText);
-    lines.push('---');
-  }
+
   for (const lang of group.targetLanguages) {
     if (lang === result.sourceLang) continue;
     const t = result.translations[lang];

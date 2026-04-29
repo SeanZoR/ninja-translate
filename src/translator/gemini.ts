@@ -139,18 +139,22 @@ function parseResponse(raw: string, opts: TranslateOptions): ParsedResponse {
   return { sourceLang, sourceText, translations };
 }
 
-function renderForWhatsApp(parsed: ParsedResponse, opts: TranslateOptions): string {
+function renderForWhatsApp(
+  parsed: ParsedResponse,
+  opts: TranslateOptions,
+  kind: 'voice' | 'text',
+): string {
   if (!parsed.sourceLang && Object.keys(parsed.translations).length === 0) {
     return '[unintelligible]';
   }
   const lines: string[] = [];
-  if (opts.showSourceLabel && parsed.sourceLang) {
-    lines.push(`[lang: ${parsed.sourceLang}]`);
+
+  // Source line only for voice (so the speaker can verify the transcript).
+  // For text the speaker already sees their own message above.
+  if (kind === 'voice' && !opts.conciseMode && parsed.sourceLang && parsed.sourceText) {
+    lines.push(`${flagFor(parsed.sourceLang)} ${parsed.sourceText}`);
   }
-  if (!opts.conciseMode && parsed.sourceText) {
-    lines.push(parsed.sourceText);
-    lines.push('---');
-  }
+
   for (const lang of opts.targetLanguages) {
     if (lang === parsed.sourceLang) continue;
     const t = parsed.translations[lang];
@@ -197,7 +201,7 @@ export async function translate(
     sourceLang: parsed.sourceLang,
     sourceText: parsed.sourceText,
     translations: parsed.translations,
-    rendered: renderForWhatsApp(parsed, opts),
+    rendered: renderForWhatsApp(parsed, opts, input.kind),
     tokensIn: inputTokens,
     tokensOut: outputTokens,
     costCents,
