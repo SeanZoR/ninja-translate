@@ -17,7 +17,10 @@ async function main() {
         },
       },
       async (sock, msg) => {
-        await handleMessage(sock, msg, { getBotJid: () => client?.botJid ?? null });
+        await handleMessage(sock, msg, {
+          getBotJid: () => client?.botJid ?? null,
+          getBotLid: () => client?.botLid ?? null,
+        });
       },
     );
   }

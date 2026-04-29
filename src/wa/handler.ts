@@ -15,10 +15,16 @@ const REACT_ERROR = '⚠️';
 
 export type HandlerCtx = {
   getBotJid: () => string | null;
+  /** LID-form JID for the bot's identity in modern WA mentions. */
+  getBotLid?: () => string | null;
 };
 
 export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: HandlerCtx): Promise<void> {
   const remoteJid = msg.key.remoteJid;
+  const kind = msg.message?.audioMessage ? 'voice'
+    : msg.message?.conversation || msg.message?.extendedTextMessage?.text ? 'text'
+    : 'other';
+  console.log(`[wa.recv] from=${remoteJid} sender=${msg.key.participant ?? msg.participant ?? '?'} kind=${kind} fromMe=${msg.key.fromMe}`);
   if (!remoteJid || !remoteJid.endsWith('@g.us')) return; // groups only
 
   const messageContent = msg.message;
@@ -66,11 +72,26 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
 
   if (text && group.textTranslateOnMention) {
     const botJid = ctx.getBotJid();
-    if (!botJid) return;
+    const botLid = ctx.getBotLid?.() ?? null;
+    if (!botJid && !botLid) return;
     const mentions =
       messageContent.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
-    if (!mentions.includes(botJid)) return;
-    await handleText(sock, msg, group, text, { senderJid, senderName, waMessageId });
+    const wasMentioned = mentions.some((m) =>
+      (botJid && m === botJid) || (botLid && m === botLid),
+    );
+    if (!wasMentioned) {
+      console.log(`[wa.recv] text ignored (no mention; mentions=${JSON.stringify(mentions)} bot=${botJid}/${botLid})`);
+      return;
+    }
+    // Strip @<digits> mention placeholders so Gemini doesn't echo them back
+    // verbatim in the translation. Removes both @<bare-digits> and any nearby
+    // whitespace/punctuation so the cleaned text reads naturally.
+    const cleanText = text.replace(/@\d{6,}\s*/g, '').trim();
+    if (!cleanText) {
+      console.log('[wa.recv] text ignored (only mention, no body)');
+      return;
+    }
+    await handleText(sock, msg, group, cleanText, { senderJid, senderName, waMessageId });
     return;
   }
 }

@@ -17,9 +17,21 @@ const logger = pino({ level: 'warn' });
 export type WAClient = {
   /** Returns the currently-active socket (changes across reconnects). */
   sock(): WASocket;
+  /** Bot's bare phone-based JID, e.g. "15551234567@s.whatsapp.net". */
   botJid: string | null;
+  /** Bot's LID-form JID (used for @mentions in modern WhatsApp), e.g. "253451003011208@lid". */
+  botLid: string | null;
   shutdown: () => Promise<void>;
 };
+
+/** Strip Baileys' device suffix from a JID: "X:NN@server" → "X@server". */
+function stripDeviceSuffix(jid: string | undefined | null): string | null {
+  if (!jid) return null;
+  const at = jid.indexOf('@');
+  if (at < 0) return jid;
+  const head = jid.slice(0, at).split(':')[0]!;
+  return head + jid.slice(at);
+}
 
 export type WAClientOptions = {
   showQrInTerminal?: boolean;
@@ -42,7 +54,8 @@ export async function startWAClient(
   fs.mkdirSync(config.sessionDir, { recursive: true });
 
   let currentSock: WASocket | null = null;
-  let botJid: string | null = config.botJid;
+  let botJid: string | null = stripDeviceSuffix(config.botJid);
+  let botLid: string | null = null;
   let stopped = false;
 
   // Run forever in the background, replacing the socket on each disconnect.
@@ -87,10 +100,14 @@ export async function startWAClient(
               console.log('\nScan the QR above with WhatsApp on the bot phone.\n');
             }
             if (connection === 'open') {
-              const meId = sock.user?.id;
-              if (meId) {
-                botJid = meId.split(':')[0]!.split('@')[0]! + '@s.whatsapp.net';
-                console.log(`[wa] connected as ${botJid}`);
+              const me = sock.user;
+              const creds = (sock.authState as any)?.creds;
+              const rawJid = me?.id ?? creds?.me?.id;
+              const rawLid = (me as any)?.lid ?? creds?.me?.lid;
+              botJid = stripDeviceSuffix(rawJid);
+              botLid = stripDeviceSuffix(rawLid);
+              if (botJid) {
+                console.log(`[wa] connected as ${botJid} (lid=${botLid ?? 'none'})`);
                 opts.onConnected?.(botJid);
               }
             }
@@ -133,6 +150,7 @@ export async function startWAClient(
   return {
     sock: () => currentSock as WASocket,
     get botJid() { return botJid; },
+    get botLid() { return botLid; },
     shutdown: async () => {
       stopped = true;
       try { await currentSock?.logout(); } catch { /* ignore */ }
