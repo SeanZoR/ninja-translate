@@ -9,3 +9,4 @@ data.db-journal
 wa-session/
 audio/
 .tsbuildinfo
+web-dist/
