@@ -1,0 +1,91 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Before filing, please:
+        - Search [existing issues](https://github.com/SeanZoR/ninja-translate/issues?q=is%3Aissue) for duplicates.
+        - **Redact phone numbers, group JIDs, and API keys** from anything you paste below.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, concise description of the bug.
+      placeholder: When I send a Hebrew voice note, the bot replies with the wrong source language.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. Approve a group with target_languages=["en","he"]
+        2. Send a Hebrew voice note
+        3. Bot reply shows source_lang=en
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD`, or release tag.
+      placeholder: v0.1.0 or 8cf7218
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: v22.11.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - Local development
+        - VPS (production)
+        - Other (please describe in summary)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant output. **Redact secrets, JIDs, and phone numbers.**
+        On a VPS: `journalctl -u ninja-translate --since '1 hour ago'`.
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have removed any secrets, phone numbers, and group JIDs from this report.
+          required: true

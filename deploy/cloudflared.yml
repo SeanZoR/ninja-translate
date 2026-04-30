@@ -5,7 +5,7 @@
 #
 # Setup outline (on the VPS, as root or with sudo):
 #   1. curl -L https://pkg.cloudflare.com/cloudflared/cloudflared-linux-amd64.deb -o /tmp/cf.deb && dpkg -i /tmp/cf.deb
-#   2. cloudflared tunnel login                      # browser auth, picks the your-domain.com zone
+#   2. cloudflared tunnel login                      # browser auth, picks your CF zone
 #   3. cloudflared tunnel create ninja-translate-api  # writes credentials JSON
 #   4. cp deploy/cloudflared.yml /etc/cloudflared/config.yml  (and edit TUNNEL_ID + credentials-file)
 #   5. cloudflared tunnel route dns ninja-translate-api api.translate.your-domain.com
@@ -17,7 +17,7 @@ credentials-file: /etc/cloudflared/TUNNEL_ID_REPLACE_ME.json
 
 # Only handle the API hostname; everything else is rejected.
 ingress:
-  - hostname: translate-api.your-domain.com    # single-level under your-domain.com - covered by CF Universal SSL
+  - hostname: translate-api.your-domain.com   # single-level under your zone - covered by CF Universal SSL
     service: http://127.0.0.1:7878
     originRequest:
       connectTimeout: 30s

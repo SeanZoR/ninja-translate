@@ -1,9 +1,33 @@
 {
   "name": "ninja-translate",
   "version": "0.1.0",
-  "description": "WhatsApp bot that translates voice and @mentioned text across N languages per group",
-  "private": true,
+  "description": "WhatsApp bot that translates voice notes and @mentioned text across N languages per group, powered by Gemini.",
+  "license": "MIT",
+  "author": "Sean Katz",
+  "homepage": "https://github.com/SeanZoR/ninja-translate#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SeanZoR/ninja-translate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SeanZoR/ninja-translate/issues"
+  },
+  "keywords": [
+    "whatsapp",
+    "translation",
+    "bot",
+    "gemini",
+    "baileys",
+    "voice-translation",
+    "i18n",
+    "multilingual",
+    "hono",
+    "sqlite"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:admin": "NINJA_ADMIN_ONLY=1 tsx watch src/index.ts",
@@ -11,7 +35,11 @@
     "login": "tsx scripts/login.ts",
     "backup": "tsx scripts/backup.ts",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.682.0",
@@ -26,10 +54,15 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.9.0",
     "@types/qrcode-terminal": "^0.12.2",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.18.0"
   }
 }

@@ -1,6 +1,5 @@
 import { downloadMediaMessage, type WAMessage, type WASocket } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
-import { config } from '../config.js';
 import { repo, openMode, type Group } from '../db/index.js';
 import { translate, flagFor } from '../translator/gemini.js';
 import { audioPath } from './client.js';
@@ -275,7 +274,7 @@ async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Grou
     enabled: true,
     voiceTranslate: true,
     textTranslateOnMention: true,
-    polishLevel: 1,
+    polishLevel: 2,
     showSourceLabel: true,
     showProcessingReaction: false,
     maxAudioSeconds: 600,

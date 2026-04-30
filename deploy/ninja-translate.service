@@ -7,7 +7,12 @@ Wants=network-online.target
 Type=simple
 User=ninja
 WorkingDirectory=/opt/ninja-translate
-ExecStart=/usr/bin/doppler run --project ninja-translate --config prd -- /usr/bin/node --import tsx src/index.ts
+# Option A: read env from a file (simplest).
+#   Place env vars in /etc/ninja-translate.env (mode 0600, owned by ninja).
+EnvironmentFile=-/etc/ninja-translate.env
+ExecStart=/usr/bin/node --import tsx src/index.ts
+# Option B: use a secret manager (Doppler / 1Password / etc.). Replace ExecStart, e.g.:
+#   ExecStart=/usr/bin/doppler run --project <your-project> --config prd -- /usr/bin/node --import tsx src/index.ts
 Restart=always
 RestartSec=5
 StandardOutput=append:/var/log/ninja-translate.log

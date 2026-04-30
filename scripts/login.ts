@@ -8,7 +8,7 @@ async function main() {
     exitOnFirstClose: false,
     onConnected: (jid) => {
       console.log(`\n[login] connected. BOT_JID=${jid}`);
-      console.log('[login] add this to Doppler: BOT_JID=' + jid);
+      console.log('[login] add this to your env (e.g. .env): BOT_JID=' + jid);
       console.log('[login] you can now stop this script (Ctrl+C). Session is saved.');
     },
   });

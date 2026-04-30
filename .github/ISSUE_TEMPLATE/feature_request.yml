@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Before filing:
+        - Check [`ROADMAP.md`](https://github.com/SeanZoR/ninja-translate/blob/main/ROADMAP.md) — the idea may already be on deck.
+        - Search [existing issues](https://github.com/SeanZoR/ninja-translate/issues?q=is%3Aissue) for duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or pain point motivates this?
+      placeholder: I want to translate stickers, but the bot ignores them today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Concrete description of the behavior you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you've thought through and why they're worse.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope hint
+      description: Which part of the codebase do you think this touches?
+      multiple: true
+      options:
+        - WhatsApp client (src/wa/)
+        - Translator (src/translator/)
+        - Admin API (src/api/)
+        - Dashboard (web/)
+        - Database (src/db/)
+        - Deploy / infrastructure
+        - Documentation
+        - Not sure
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Mockups, related links, prior art.

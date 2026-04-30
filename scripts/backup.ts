@@ -13,8 +13,8 @@ import { config } from '../src/config.js';
  * Uploads to Cloudflare R2 with date-stamped key. R2 lifecycle policy on the
  * bucket keeps last 30 days.
  *
- * Schedule via cron (on VPS):
- *   30 3 * * *  ninja  cd /opt/ninja-translate && doppler run -- pnpm backup
+ * Schedule via cron (on VPS), with env loaded from your secrets manager or .env:
+ *   30 3 * * *  ninja  cd /opt/ninja-translate && pnpm backup
  */
 
 function required(name: string): string {

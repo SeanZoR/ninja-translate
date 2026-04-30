@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Bootstrap a fresh Hostinger VPS for ninja-translate.
+# Bootstrap a fresh Linux VPS for ninja-translate.
 #
-# Run as root after SSH'ing into a fresh Ubuntu 24.04 VPS:
-#   curl -fsSL https://raw.githubusercontent.com/SeanZoR/ninja-translate/main/deploy/install.sh | bash
+# Tested on Ubuntu 24.04. Run as root after SSH:
+#   curl -fsSL https://raw.githubusercontent.com/<your-github>/ninja-translate/main/deploy/install.sh | bash
 #
 # Or copy this script and run it locally with the repo cloned.
 
 set -euxo pipefail
+
+REPO_URL="${REPO_URL:-https://github.com/<your-github>/ninja-translate.git}"
+APP_DIR="${APP_DIR:-/opt/ninja-translate}"
+APP_USER="${APP_USER:-ninja}"
 
 # 1. System packages
 apt-get update
@@ -17,44 +21,42 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 corepack enable
 
-# 3. Doppler CLI
-curl -Ls https://cli.doppler.com/install.sh | sh
-
-# 4. Cloudflared (will be configured separately - see deploy/cloudflared.yml)
+# 3. Cloudflared (will be configured separately - see deploy/cloudflared.yml)
 curl -L https://pkg.cloudflare.com/cloudflared/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb
 dpkg -i /tmp/cloudflared.deb
 rm -f /tmp/cloudflared.deb
 
-# 5. App user + directory
-id -u ninja >/dev/null 2>&1 || useradd -m -s /bin/bash ninja
+# 4. App user + directory
+id -u "$APP_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$APP_USER"
 
-if [ ! -d /opt/ninja-translate ]; then
-  git clone https://github.com/SeanZoR/ninja-translate.git /opt/ninja-translate
+if [ ! -d "$APP_DIR" ]; then
+  git clone "$REPO_URL" "$APP_DIR"
 fi
-chown -R ninja:ninja /opt/ninja-translate
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
-# 6. Install dependencies
-sudo -u ninja bash -c 'cd /opt/ninja-translate && pnpm install && pnpm rebuild better-sqlite3'
+# 5. Install dependencies
+sudo -u "$APP_USER" bash -c "cd $APP_DIR && pnpm install && pnpm rebuild better-sqlite3"
 
-# 7. Doppler service token
-cat <<'EOF'
+# 6. Next steps (manual)
+cat <<EOF
 ==================================================
 Next steps:
 
-  1. Create a Doppler service token for your-project/prd and place it at
-     /etc/ninja-translate.doppler.token, then:
-        doppler configure set token "$(cat /etc/ninja-translate.doppler.token)" \
-            --scope /opt/ninja-translate
+  1. Provision your env. Either:
+        a) Copy .env.example to $APP_DIR/.env and fill in values, OR
+        b) Use a secret manager (Doppler / 1Password / etc.) that injects env
+           vars into the systemd unit. The app reads from process.env.
 
-  2. As ninja user, run a one-time WA QR pairing:
-        sudo -u ninja bash -c 'cd /opt/ninja-translate && doppler run -- pnpm login'
+  2. As app user, run a one-time WA QR pairing:
+        sudo -u $APP_USER bash -c "cd $APP_DIR && pnpm login"
 
-  3. Capture BOT_JID printed at login and add it to Doppler.
+  3. Capture BOT_JID printed at login and add it to your env.
 
   4. Configure cloudflared (see deploy/cloudflared.yml header for steps).
 
-  5. Install + enable the systemd unit:
-        cp /opt/ninja-translate/deploy/ninja-translate.service /etc/systemd/system/
+  5. Install + enable the systemd unit (edit it first to match your env-injection
+     approach):
+        cp $APP_DIR/deploy/ninja-translate.service /etc/systemd/system/
         systemctl daemon-reload
         systemctl enable --now ninja-translate
 
