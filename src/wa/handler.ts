@@ -243,18 +243,20 @@ function formatReply(
 
   const lines: string[] = [];
 
-  // Show source line ONLY for voice messages (so the speaker can verify the
-  // transcription - polished per polishLevel). Text @mentions skip it since
-  // the user already sees their own message above the bot's quoted reply.
-  if (kind === 'voice' && result.sourceLang && result.sourceText) {
-    lines.push(`${flagFor(result.sourceLang)} ${result.sourceText}`);
-  }
-
   for (const lang of group.targetLanguages) {
     if (lang === result.sourceLang) continue;
     const t = result.translations[lang];
     if (t) lines.push(`${flagFor(lang)} ${t}`);
   }
+
+  // Source line goes LAST and only for voice messages (so the speaker can
+  // verify the transcription - polished per polishLevel). Text @mentions skip
+  // it since the user already sees their own message above the bot's quoted
+  // reply.
+  if (kind === 'voice' && result.sourceLang && result.sourceText) {
+    lines.push(`${flagFor(result.sourceLang)} ${result.sourceText}`);
+  }
+
   return lines.join('\n');
 }
 

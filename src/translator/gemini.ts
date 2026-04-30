@@ -168,18 +168,20 @@ function renderForWhatsApp(
   }
   const lines: string[] = [];
 
-  // Source line only for voice (so the speaker can verify the transcript -
-  // possibly polished per polishLevel). Text mentions skip it since the
-  // speaker already sees their own message above the bot's quoted reply.
-  if (kind === 'voice' && parsed.sourceLang && parsed.sourceText) {
-    lines.push(`${flagFor(parsed.sourceLang)} ${parsed.sourceText}`);
-  }
-
   for (const lang of opts.targetLanguages) {
     if (lang === parsed.sourceLang) continue;
     const t = parsed.translations[lang];
     if (t && t.trim().length > 0) lines.push(`${flagFor(lang)} ${t}`);
   }
+
+  // Source line goes LAST and only for voice (so the speaker can verify the
+  // transcript - possibly polished per polishLevel). Text mentions skip it
+  // since the speaker already sees their own message above the bot's quoted
+  // reply.
+  if (kind === 'voice' && parsed.sourceLang && parsed.sourceText) {
+    lines.push(`${flagFor(parsed.sourceLang)} ${parsed.sourceText}`);
+  }
+
   return lines.join('\n');
 }
 
