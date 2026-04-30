@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS groups (
   enabled                      INTEGER NOT NULL DEFAULT 1,
   voice_translate              INTEGER NOT NULL DEFAULT 1,
   text_translate_on_mention    INTEGER NOT NULL DEFAULT 1,
-  polish_level                 INTEGER NOT NULL DEFAULT 1,  -- 0=verbatim, 1=light, 2=medium, 3=high (voice only)
+  polish_level                 INTEGER NOT NULL DEFAULT 2,  -- 0=verbatim, 1=light, 2=medium, 3=high (voice only)
   show_source_label            INTEGER NOT NULL DEFAULT 1,
   show_processing_reaction     INTEGER NOT NULL DEFAULT 0,
   max_audio_seconds            INTEGER NOT NULL DEFAULT 600,

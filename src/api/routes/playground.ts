@@ -5,7 +5,7 @@ import type { AdminCtx } from '../index.js';
 
 const baseSchema = z.object({
   targetLanguages: z.array(z.string().length(2)).min(1).max(8),
-  polishLevel: z.number().int().min(0).max(3).default(1),
+  polishLevel: z.number().int().min(0).max(3).default(2),
   showSourceLabel: z.boolean().default(true),
 });
 

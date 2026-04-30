@@ -18,8 +18,10 @@ db.exec(fs.readFileSync(schemaPath, 'utf8'));
 // columns to an existing table; ALTER TABLE ADD COLUMN handles that.
 const migrations: { sql: string; ignoreIfExists?: boolean }[] = [
   { sql: `ALTER TABLE groups ADD COLUMN auto_approved INTEGER NOT NULL DEFAULT 0`, ignoreIfExists: true },
-  // Replaces concise_mode boolean. DEFAULT 1 backfills existing rows to "light".
-  { sql: `ALTER TABLE groups ADD COLUMN polish_level INTEGER NOT NULL DEFAULT 1`, ignoreIfExists: true },
+  // Replaces concise_mode boolean. DEFAULT applies on first add only; the
+  // column is already in place on prod, so changing the literal here only
+  // affects fresh DBs (where it'll seed new rows at "medium").
+  { sql: `ALTER TABLE groups ADD COLUMN polish_level INTEGER NOT NULL DEFAULT 2`, ignoreIfExists: true },
 ];
 for (const m of migrations) {
   try {

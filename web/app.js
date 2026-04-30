@@ -62,7 +62,7 @@ function app() {
 
     pg: {
       selectedLangs: ['en', 'th'],
-      polishLevel: 1,
+      polishLevel: 2,
       showSourceLabel: true,
       kind: 'text',
       text: '',
@@ -105,7 +105,7 @@ function app() {
           this.forms[p.jid] = {
             label: p.subject || '',
             selectedLangs: ['en'],
-            polishLevel: 1,
+            polishLevel: 2,
             showSourceLabel: true,
             showProcessingReaction: false,
             maxAudioSeconds: 600,

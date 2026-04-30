@@ -43,7 +43,7 @@ export function inboxRoutes(ctx: AdminCtx) {
       enabled: true,
       voiceTranslate: true,
       textTranslateOnMention: true,
-      polishLevel: args.polishLevel ?? 1,
+      polishLevel: args.polishLevel ?? 2,
       showSourceLabel: args.showSourceLabel ?? true,
       showProcessingReaction: args.showProcessingReaction ?? false,
       maxAudioSeconds: args.maxAudioSeconds ?? 600,
