@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.682.0",
-    "@google/generative-ai": "^0.21.0",
+    "@google/generative-ai": "^0.24.1",
     "@hono/node-server": "^1.13.0",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "better-sqlite3": "^11.5.0",
