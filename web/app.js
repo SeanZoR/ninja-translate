@@ -252,9 +252,12 @@ function app() {
       await this.refresh();
     },
 
-    formatCents(c) {
-      if (typeof c !== 'number') return '-';
-      return '¢' + c.toFixed(3);
+    // Cost is stored as cents (often fractional). Render as USD: 4 decimals
+    // for sub-cent amounts so 0.19¢ doesn't round to $0.00.
+    formatCost(cents) {
+      if (typeof cents !== 'number') return '-';
+      const dollars = cents / 100;
+      return '$' + dollars.toFixed(dollars < 0.01 ? 4 : 2);
     },
 
     labelFor(jid) {

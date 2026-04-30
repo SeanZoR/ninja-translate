@@ -123,7 +123,7 @@
               </td>
               <td x-text="g.targetLanguages.join(', ')"></td>
               <td><label class="switch"><input type="checkbox" :checked="g.enabled" @change="toggleEnabled(g, $event.target.checked)" /></label></td>
-              <td x-text="formatCents(g.monthCostCents)"></td>
+              <td x-text="formatCost(g.monthCostCents)"></td>
               <td x-text="g.lastTranslatedAt || '-'"></td>
               <td class="row-actions">
                 <button @click="openSettings(g)">Settings</button>
@@ -213,7 +213,7 @@
             <tr><th>Detected source language</th><td><code x-text="pg.result?.sourceLang || '?'"></code></td></tr>
             <tr><th>Source text</th><td x-text="pg.result?.sourceText || '(none)'"></td></tr>
             <tr><th>Tokens in / out</th><td x-text="(pg.result?.tokensIn ?? 0) + ' / ' + (pg.result?.tokensOut ?? 0)"></td></tr>
-            <tr><th>Cost</th><td x-text="formatCents(pg.result?.costCents ?? 0)"></td></tr>
+            <tr><th>Cost</th><td x-text="formatCost(pg.result?.costCents ?? 0)"></td></tr>
           </tbody>
         </table>
 
@@ -231,14 +231,14 @@
     <!-- COST -->
     <section x-show="tab === 'cost'">
       <h2>This month</h2>
-      <p>Total: <strong x-text="formatCents(usage.totalCents || 0)"></strong></p>
+      <p>Total: <strong x-text="formatCost(usage.totalCents || 0)"></strong></p>
       <table x-show="usage.perGroup?.length">
         <thead><tr><th>Group</th><th>Cents</th></tr></thead>
         <tbody>
           <template x-for="row in usage.perGroup || []" :key="row.group_jid">
             <tr>
               <td><code x-text="row.group_jid"></code> <span class="hint" x-text="labelFor(row.group_jid)"></span></td>
-              <td x-text="formatCents(row.total)"></td>
+              <td x-text="formatCost(row.total)"></td>
             </tr>
           </template>
         </tbody>
