@@ -14,6 +14,14 @@ Gemini 2.5 Flash for native-audio understanding in one round trip.
 > Self-host friendly — see [Quick start](#quick-start). See
 > [`ROADMAP.md`](ROADMAP.md) for what's next.
 
+> ⚠️ **Unofficial WhatsApp client.** This project uses
+> [Baileys](https://github.com/WhiskeySockets/Baileys), the same library
+> behind many community WhatsApp bots. It is **not** an official Meta /
+> WhatsApp product and is not endorsed by them. Running it on an account
+> may violate WhatsApp's Terms of Service and could result in that account
+> being banned. **Use at your own risk on a dedicated number you can afford
+> to lose.** See [Disclaimer](#disclaimer) for the longer version.
+
 ---
 
 ## Features
@@ -188,6 +196,37 @@ Found a vulnerability? Please report privately — see [`SECURITY.md`](SECURITY.
 ## Code of Conduct
 
 This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
+
+## Disclaimer
+
+Ninja Translate is an independent, unofficial project. It is not affiliated
+with, authorized by, endorsed by, or in any way officially connected to
+WhatsApp, Meta Platforms, or any of their subsidiaries.
+
+The bot connects to WhatsApp through the open-source
+[Baileys](https://github.com/WhiskeySockets/Baileys) library, the same
+approach used by many popular community WhatsApp bots and tooling projects.
+That kind of unofficial client access **may violate WhatsApp's
+[Terms of Service](https://www.whatsapp.com/legal/terms-of-service)** and
+the account running the bot can be **rate-limited, restricted, or banned**
+at WhatsApp's discretion, with no warning and no recourse.
+
+By choosing to self-host or run this software, you acknowledge that:
+
+- You are doing so **at your own risk and on your own responsibility**.
+- You should run it on a **dedicated WhatsApp number** that you are willing
+  to lose.
+- You are responsible for **complying with applicable laws** in your
+  jurisdiction (including privacy/recording consent laws — voice notes are
+  sent to a third-party translation API).
+- You are responsible for **getting consent** from group participants where
+  required before deploying the bot in their conversations.
+- The maintainers and contributors provide this software **"as is"** with
+  no warranty (see the [LICENSE](LICENSE)) and accept no liability for
+  account bans, data loss, regulatory issues, or any other consequences of
+  use.
+
+If you are not comfortable with these terms, **do not run this software**.
 
 ## License
 

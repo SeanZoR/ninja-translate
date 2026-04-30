@@ -37,3 +37,13 @@ Cloudflare Access is enabled), DoS that requires owning the WhatsApp account.
 ## Supported Versions
 
 Only the latest release on `main` is supported. Older tags are not patched.
+
+## A note on WhatsApp ToS
+
+Ninja Translate uses [Baileys](https://github.com/WhiskeySockets/Baileys), an
+unofficial WhatsApp Web client. Running the bot **may violate WhatsApp's
+Terms of Service** and the account running it can be banned at any time. This
+is the same risk profile as any community Baileys-based project. The maintainers
+do not condone or recommend evading WhatsApp's policies — by self-hosting you
+accept that risk yourself. See the [Disclaimer](README.md#disclaimer) in the
+README for the full terms.
