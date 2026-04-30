@@ -62,7 +62,7 @@ function app() {
 
     pg: {
       selectedLangs: ['en', 'th'],
-      conciseMode: false,
+      polishLevel: 1,
       showSourceLabel: true,
       kind: 'text',
       text: '',
@@ -105,7 +105,7 @@ function app() {
           this.forms[p.jid] = {
             label: p.subject || '',
             selectedLangs: ['en'],
-            conciseMode: false,
+            polishLevel: 1,
             showSourceLabel: true,
             showProcessingReaction: false,
             maxAudioSeconds: 600,
@@ -126,7 +126,7 @@ function app() {
         body: JSON.stringify({
           label: f.label,
           targetLanguages: target,
-          conciseMode: f.conciseMode,
+          polishLevel: f.polishLevel,
           showSourceLabel: f.showSourceLabel,
           showProcessingReaction: f.showProcessingReaction,
           maxAudioSeconds: f.maxAudioSeconds,
@@ -315,8 +315,8 @@ function app() {
       const langs = this.pg.selectedLangs.slice();
       if (!langs.length) return alert('Pick at least one language.');
       const body = this.pg.kind === 'text'
-        ? { kind: 'text', text: this.pg.text, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel }
-        : { kind: 'voice', audioBase64: this.pg.audioBase64, mimeType: this.pg.audioMimeType, targetLanguages: langs, conciseMode: this.pg.conciseMode, showSourceLabel: this.pg.showSourceLabel };
+        ? { kind: 'text', text: this.pg.text, targetLanguages: langs, polishLevel: this.pg.polishLevel, showSourceLabel: this.pg.showSourceLabel }
+        : { kind: 'voice', audioBase64: this.pg.audioBase64, mimeType: this.pg.audioMimeType, targetLanguages: langs, polishLevel: this.pg.polishLevel, showSourceLabel: this.pg.showSourceLabel };
 
       if (this.pg.kind === 'text' && !this.pg.text) return alert('Type something first');
       if (this.pg.kind === 'voice' && !this.pg.audioBase64) return alert('Upload or record audio first');

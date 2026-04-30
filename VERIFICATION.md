@@ -42,8 +42,8 @@ In the **Playground** tab:
 | 1 | `en,th` | `"Please warm the milk and bring it upstairs"` | Detected `en`, Thai translation rendered with 🇹🇭. |
 | 2 | `en,th,he` | (Hebrew) `"לתת לילד לישון"` | Detected `he`, English + Thai translations. |
 | 3 | `en,th,my` | (Burmese) any short phrase | Detected `my`, English + Thai translations. **This is the Burmese quality gate.** If output is garbled / hallucinated, switch to ElevenLabs+Claude fallback before going further. |
-| 4 | `en,th` (concise mode ON) | English text | No source line, only the Thai translation. |
-| 5 | `en,th` (showSourceLabel OFF) | English text | No `[lang: en]` header. |
+| 4 | `en,th` (polishLevel=2) | Voice note: English with several "um/uh/like" fillers and a false start | Source line shows a cleaned-up version (no fillers); Thai translation reflects the cleaned text. |
+| 5 | `en,th` (polishLevel=0) | Same voice note as #4 | Source line is fully verbatim - fillers and false starts preserved. |
 
 Record per-message the rendered string, the detected language, and the cost. A 3-language voice-style message should land at well under ¢0.1.
 
@@ -59,7 +59,7 @@ If 4/5 Burmese transcriptions are wrong or wildly off, stop and switch the trans
 
 ### 1.4 Parser robustness
 
-Run the same input twice with slightly different prompts (toggle conciseMode / showSourceLabel) and confirm the parser handles every shape - the rendered string should match the toggles, and the `translations` JSON should always have one key per non-source target language.
+Run the same input twice with different `polishLevel` values (0 vs 2 vs 3) and confirm the parser handles every shape - the rendered source line should reflect the polishing instruction, and the `translations` JSON should always have one key per non-source target language.
 
 ## Layer 2: Local Hono integration (no WhatsApp)
 
@@ -78,7 +78,7 @@ curl -X PUT http://127.0.0.1:7878/api/groups/120363999999999999@g.us \
     "enabled": true,
     "voiceTranslate": true,
     "textTranslateOnMention": true,
-    "conciseMode": false,
+    "polishLevel": 1,
     "showSourceLabel": true,
     "showProcessingReaction": false,
     "maxAudioSeconds": 600,
@@ -93,7 +93,7 @@ curl http://127.0.0.1:7878/api/groups | jq
 # Update one field
 curl -X PUT http://127.0.0.1:7878/api/groups/120363999999999999@g.us \
   -H 'content-type: application/json' \
-  -d '{ ... same body, conciseMode: true }'
+  -d '{ ... same body, polishLevel: 2 }'
 # Delete
 curl -X DELETE 'http://127.0.0.1:7878/api/groups/120363999999999999@g.us'
 ```
@@ -175,7 +175,7 @@ Now we're putting real messages through the real bot. **Do this only after Layer
 ### 3.4 Text @mention
 
 9. Send a text message in the group with `@<bot phone number>` mention. WhatsApp Web does mentions via `@` + selecting the contact.
-10. Bot replies with translations; same shape as voice (no transcript line if `conciseMode: false` since text is the source).
+10. Bot replies with translations; text @mentions never include the source line (the user already sees their own message above the bot's quoted reply). `polishLevel` is ignored on text input.
 11. Send the same text WITHOUT mentioning the bot. Bot should stay silent.
 
 **Pass criteria**: bot replies only when actually mentioned (via `mentionedJid`, NOT text-parsed `@`).

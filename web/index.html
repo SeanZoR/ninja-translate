@@ -74,7 +74,14 @@
             </div>
             <details>
               <summary>Advanced</summary>
-              <label class="row"><input type="checkbox" x-model="forms[p.jid].conciseMode" /> Concise mode (skip source transcript)</label>
+              <label>Polish level <small>(voice only - cleans up the transcript before translating)</small>
+                <select x-model.number="forms[p.jid].polishLevel">
+                  <option value="0">0 - None (verbatim)</option>
+                  <option value="1">1 - Light (drop fillers)</option>
+                  <option value="2">2 - Medium (clean up)</option>
+                  <option value="3">3 - High (rewrite for clarity)</option>
+                </select>
+              </label>
               <label class="row"><input type="checkbox" x-model="forms[p.jid].showSourceLabel" /> Show <code>[lang: xx]</code> header</label>
               <label class="row"><input type="checkbox" x-model="forms[p.jid].showProcessingReaction" /> 🌐 reaction on receipt</label>
               <label>Max audio seconds
@@ -156,7 +163,14 @@
         </div>
 
         <div class="row-group">
-          <label class="row"><input type="checkbox" x-model="pg.conciseMode" /> Concise mode</label>
+          <label>Polish level <small>(voice only)</small>
+            <select x-model.number="pg.polishLevel">
+              <option value="0">0 - None (verbatim)</option>
+              <option value="1">1 - Light (drop fillers)</option>
+              <option value="2">2 - Medium (clean up)</option>
+              <option value="3">3 - High (rewrite for clarity)</option>
+            </select>
+          </label>
           <label class="row"><input type="checkbox" x-model="pg.showSourceLabel" /> Show <code>[lang: xx]</code> header</label>
         </div>
 
@@ -334,7 +348,14 @@
             <label class="row"><input type="checkbox" x-model="current.enabled" /> Enabled</label>
             <label class="row"><input type="checkbox" x-model="current.voiceTranslate" /> Translate voice</label>
             <label class="row"><input type="checkbox" x-model="current.textTranslateOnMention" /> Translate text on @mention</label>
-            <label class="row"><input type="checkbox" x-model="current.conciseMode" /> Concise mode</label>
+            <label>Polish level <small>(voice only - cleans up the transcript before translating)</small>
+              <select x-model.number="current.polishLevel">
+                <option value="0">0 - None (verbatim)</option>
+                <option value="1">1 - Light (drop fillers)</option>
+                <option value="2">2 - Medium (clean up)</option>
+                <option value="3">3 - High (rewrite for clarity)</option>
+              </select>
+            </label>
             <label class="row"><input type="checkbox" x-model="current.showSourceLabel" /> Show source label</label>
             <label class="row"><input type="checkbox" x-model="current.showProcessingReaction" /> 🌐 reaction on receipt</label>
             <label>Max audio seconds

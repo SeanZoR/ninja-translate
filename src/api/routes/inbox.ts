@@ -23,7 +23,7 @@ export function inboxRoutes(ctx: AdminCtx) {
   const approveSchema = z.object({
     label: z.string().min(1),
     targetLanguages: z.array(z.string().length(2)).min(1),
-    conciseMode: z.boolean().optional(),
+    polishLevel: z.number().int().min(0).max(3).optional(),
     showSourceLabel: z.boolean().optional(),
     showProcessingReaction: z.boolean().optional(),
     maxAudioSeconds: z.number().int().positive().optional(),
@@ -43,7 +43,7 @@ export function inboxRoutes(ctx: AdminCtx) {
       enabled: true,
       voiceTranslate: true,
       textTranslateOnMention: true,
-      conciseMode: args.conciseMode ?? false,
+      polishLevel: args.polishLevel ?? 1,
       showSourceLabel: args.showSourceLabel ?? true,
       showProcessingReaction: args.showProcessingReaction ?? false,
       maxAudioSeconds: args.maxAudioSeconds ?? 600,

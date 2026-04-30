@@ -42,9 +42,25 @@ export type TranslateInput =
 
 export type TranslateOptions = {
   targetLanguages: string[];
-  conciseMode: boolean;
+  /** Voice-only. 0=verbatim, 1=light fillers, 2=medium cleanup, 3=high (rewrite for clarity). */
+  polishLevel: number;
   showSourceLabel: boolean;
 };
+
+function polishInstruction(level: number, kind: 'voice' | 'text'): string {
+  if (kind === 'text') return ''; // Polishing only applies to voice transcripts.
+  switch (level) {
+    case 0:
+      return 'Produce a strictly verbatim transcript - include filler sounds, repetitions, and false starts as spoken.';
+    case 2:
+      return 'Drop filler sounds (um, uh, er, like-as-filler, you-know) AND collapse repeated false starts. Tighten awkward phrasing while preserving voice and intent.';
+    case 3:
+      return 'Polish into clear natural prose: drop fillers, false starts, and repetitions, and restructure sentences for clarity if needed. Preserve all factual content and the speaker\'s intent. Never invent information.';
+    case 1:
+    default:
+      return 'Drop obvious filler sounds (um, uh, er, like-as-filler) and verbal tics. Keep the speaker\'s exact phrasing otherwise.';
+  }
+}
 
 export type TranslateResult = {
   sourceLang: string | null;
@@ -66,6 +82,9 @@ function buildPrompt(opts: TranslateOptions, kind: 'voice' | 'text'): string {
   const labelled = opts.targetLanguages
     .map((l) => `  - ${l} (${LANGUAGE_NAMES[l] ?? l})`)
     .join('\n');
+  const transcriptStep = kind === 'voice'
+    ? `Produce a transcript in the source language. ${polishInstruction(opts.polishLevel, 'voice')}`
+    : 'Use the input text verbatim.';
   return `You are a translator inside a multilingual WhatsApp group.
 
 Languages in this group (ISO-639-1 code → name):
@@ -75,8 +94,8 @@ The input is ${kind === 'voice' ? 'a voice message (audio)' : 'a text message'}.
 
 Steps:
 1. Identify the source language (must be one of the codes above).
-2. ${kind === 'voice' ? 'Produce a faithful transcript in the source language.' : 'Use the input text verbatim.'}
-3. Translate naturally into every OTHER language in the list. Preserve tone and register. NO commentary, NO explanations, NO alternative phrasings, NO markdown.
+2. ${transcriptStep}
+3. Translate naturally into every OTHER language in the list, based on the transcript from step 2. Preserve tone and register. NO commentary, NO explanations, NO alternative phrasings, NO markdown.
 
 Output EXACTLY this format and nothing else:
 
@@ -149,9 +168,10 @@ function renderForWhatsApp(
   }
   const lines: string[] = [];
 
-  // Source line only for voice (so the speaker can verify the transcript).
-  // For text the speaker already sees their own message above.
-  if (kind === 'voice' && !opts.conciseMode && parsed.sourceLang && parsed.sourceText) {
+  // Source line only for voice (so the speaker can verify the transcript -
+  // possibly polished per polishLevel). Text mentions skip it since the
+  // speaker already sees their own message above the bot's quoted reply.
+  if (kind === 'voice' && parsed.sourceLang && parsed.sourceText) {
     lines.push(`${flagFor(parsed.sourceLang)} ${parsed.sourceText}`);
   }
 

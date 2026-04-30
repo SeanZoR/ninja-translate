@@ -139,7 +139,7 @@ async function handleVoice(
       { kind: 'voice', audioBase64, mimeType },
       {
         targetLanguages: group.targetLanguages,
-        conciseMode: group.conciseMode,
+        polishLevel: group.polishLevel,
         showSourceLabel: group.showSourceLabel,
       },
     );
@@ -176,7 +176,7 @@ async function handleText(
       { kind: 'text', text },
       {
         targetLanguages: group.targetLanguages,
-        conciseMode: group.conciseMode,
+        polishLevel: group.polishLevel,
         showSourceLabel: group.showSourceLabel,
       },
     );
@@ -245,10 +245,9 @@ function formatReply(
   const lines: string[] = [];
 
   // Show source line ONLY for voice messages (so the speaker can verify the
-  // transcription). For text @mentions the user already sees their own message
-  // above, so repeating it is just noise. Concise mode skips the transcript
-  // for voice too.
-  if (kind === 'voice' && !group.conciseMode && result.sourceLang && result.sourceText) {
+  // transcription - polished per polishLevel). Text @mentions skip it since
+  // the user already sees their own message above the bot's quoted reply.
+  if (kind === 'voice' && result.sourceLang && result.sourceText) {
     lines.push(`${flagFor(result.sourceLang)} ${result.sourceText}`);
   }
 
@@ -276,7 +275,7 @@ async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Grou
     enabled: true,
     voiceTranslate: true,
     textTranslateOnMention: true,
-    conciseMode: false,
+    polishLevel: 1,
     showSourceLabel: true,
     showProcessingReaction: false,
     maxAudioSeconds: 600,

@@ -5,7 +5,7 @@ import type { AdminCtx } from '../index.js';
 
 const baseSchema = z.object({
   targetLanguages: z.array(z.string().length(2)).min(1).max(8),
-  conciseMode: z.boolean().default(false),
+  polishLevel: z.number().int().min(0).max(3).default(1),
   showSourceLabel: z.boolean().default(true),
 });
 
@@ -40,7 +40,7 @@ export function playgroundRoutes(_ctx: AdminCtx) {
             { kind: 'text', text: args.text },
             {
               targetLanguages: args.targetLanguages,
-              conciseMode: args.conciseMode,
+              polishLevel: args.polishLevel,
               showSourceLabel: args.showSourceLabel,
             },
           )
@@ -48,7 +48,7 @@ export function playgroundRoutes(_ctx: AdminCtx) {
             { kind: 'voice', audioBase64: args.audioBase64, mimeType: args.mimeType },
             {
               targetLanguages: args.targetLanguages,
-              conciseMode: args.conciseMode,
+              polishLevel: args.polishLevel,
               showSourceLabel: args.showSourceLabel,
             },
           );
