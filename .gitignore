@@ -10,3 +10,5 @@ wa-session/
 audio/
 .tsbuildinfo
 web-dist/
+web/assets/videos/
+remotion/out/

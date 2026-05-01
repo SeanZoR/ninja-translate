@@ -1,16 +1,45 @@
 import { downloadMediaMessage, type WAMessage, type WASocket } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
 import { repo, openMode, type Group } from '../db/index.js';
-import { translate, flagFor } from '../translator/gemini.js';
+import { translate, flagFor, type TranslateOptions } from '../translator/gemini.js';
 import { audioPath } from './client.js';
 import { alert } from '../alerts.js';
+import { config } from '../config.js';
 
 const budgetAlerted = new Map<string, string>(); // group_jid → YYYY-MM
+const dmReplied = new Map<string, number>();    // user_jid → epoch ms of last DM reply
 
 const REACT_PROCESSING = '🌐';
 const REACT_TOO_LONG = '⏱️';
 const REACT_BUDGET = '💸';
 const REACT_ERROR = '⚠️';
+
+const DM_RATE_LIMIT_MS = 30_000;
+
+/**
+ * Merges per-user overrides onto the group config for the speaker. Group is the
+ * single source of truth for `targetLanguages` (per-user fan-out would silently
+ * break group expectations for other readers).
+ */
+function effectiveOptions(group: Group, speakerJid: string | null): TranslateOptions {
+  const u = speakerJid ? repo.getUser(speakerJid) : null;
+  return {
+    targetLanguages: group.targetLanguages,
+    polishLevel: u?.polishLevel ?? group.polishLevel,
+    showSourceLabel: u?.showSourceLabel ?? group.showSourceLabel,
+    tone: u?.tone ?? undefined,
+    sourceLanguageHint: u?.sourceLanguageHint ?? undefined,
+  };
+}
+
+function effectiveProcessingReaction(group: Group, speakerJid: string | null): boolean {
+  const u = speakerJid ? repo.getUser(speakerJid) : null;
+  return u?.showProcessingReaction ?? group.showProcessingReaction;
+}
+
+function publicUserBaseUrl(): string {
+  return config.publicUserBaseUrl ?? `http://${config.adminHost}:${config.adminPort}`;
+}
 
 export type HandlerCtx = {
   getBotJid: () => string | null;
@@ -24,7 +53,12 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     : msg.message?.conversation || msg.message?.extendedTextMessage?.text ? 'text'
     : 'other';
   console.log(`[wa.recv] from=${remoteJid} sender=${msg.key.participant ?? msg.participant ?? '?'} kind=${kind} fromMe=${msg.key.fromMe}`);
-  if (!remoteJid || !remoteJid.endsWith('@g.us')) return; // groups only
+  if (!remoteJid) return;
+  if (remoteJid.endsWith('@s.whatsapp.net')) {
+    await handleDirectMessage(sock, remoteJid, msg);
+    return;
+  }
+  if (!remoteJid.endsWith('@g.us')) return;
 
   const messageContent = msg.message;
   if (!messageContent) return;
@@ -65,6 +99,13 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     ?? null;
 
   if (voice && group.voiceTranslate) {
+    // Per-user opt-out: speaker explicitly disabled voice translation for their
+    // own messages. Group must allow first; user can only narrow, not widen.
+    const userVoice = senderJid ? repo.getUser(senderJid)?.voiceTranslate : null;
+    if (userVoice === false) {
+      console.log(`[wa.recv] voice skipped (user opt-out senderJid=${senderJid})`);
+      return;
+    }
     await handleVoice(sock, msg, group, ctx, { senderJid, senderName, waMessageId });
     return;
   }
@@ -111,7 +152,7 @@ async function handleVoice(
     return;
   }
 
-  if (group.showProcessingReaction) {
+  if (effectiveProcessingReaction(group, meta.senderJid)) {
     await react(sock, msg, REACT_PROCESSING);
   }
 
@@ -136,11 +177,7 @@ async function handleVoice(
   try {
     result = await translate(
       { kind: 'voice', audioBase64, mimeType },
-      {
-        targetLanguages: group.targetLanguages,
-        polishLevel: group.polishLevel,
-        showSourceLabel: group.showSourceLabel,
-      },
+      effectiveOptions(group, meta.senderJid),
     );
   } catch (err) {
     console.error('[gemini]', err);
@@ -165,7 +202,7 @@ async function handleText(
   text: string,
   meta: { senderJid: string | null; senderName: string | null; waMessageId: string },
 ): Promise<void> {
-  if (group.showProcessingReaction) {
+  if (effectiveProcessingReaction(group, meta.senderJid)) {
     await react(sock, msg, REACT_PROCESSING);
   }
 
@@ -173,11 +210,7 @@ async function handleText(
   try {
     result = await translate(
       { kind: 'text', text },
-      {
-        targetLanguages: group.targetLanguages,
-        polishLevel: group.polishLevel,
-        showSourceLabel: group.showSourceLabel,
-      },
+      effectiveOptions(group, meta.senderJid),
     );
   } catch (err) {
     console.error('[gemini]', err);
@@ -258,6 +291,34 @@ function formatReply(
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Any DM to the bot triggers an auto-reply with the user's magic settings link.
+ * Idempotent: returns the same active token within its TTL, so the same URL
+ * keeps working across multiple DMs. Rate-limited per-jid in-process to avoid
+ * spamming when a user fires several messages in a row.
+ */
+async function handleDirectMessage(sock: WASocket, userJid: string, _msg: WAMessage): Promise<void> {
+  const now = Date.now();
+  const last = dmReplied.get(userJid) ?? 0;
+  if (now - last < DM_RATE_LIMIT_MS) {
+    console.log(`[wa.dm] rate-limited senderJid=${userJid} (${now - last}ms since last)`);
+    return;
+  }
+  dmReplied.set(userJid, now);
+
+  const { token } = repo.getOrCreateSettingsToken(userJid);
+  const url = `${publicUserBaseUrl()}/u/${token}`;
+  const body =
+    `🥷 Your Ninja Translate settings — these follow you to every group:\n${url}\n\n` +
+    `(link is private to you, valid for 30 days)`;
+  try {
+    await sock.sendMessage(userJid, { text: body });
+    console.log(`[wa.dm] settings link sent to ${userJid}`);
+  } catch (err) {
+    console.error('[wa.dm] sendMessage failed', err);
+  }
 }
 
 async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Group> {

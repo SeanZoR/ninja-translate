@@ -77,3 +77,28 @@ CREATE TABLE IF NOT EXISTS usage_daily (
   cost_cents_total      REAL NOT NULL DEFAULT 0,
   PRIMARY KEY (group_jid, date)
 );
+
+-- Per-user override config. Each speaker has at most one row keyed by JID.
+-- Any non-null column overrides the matching group setting for messages this
+-- speaker sends. NULL = inherit group default.
+CREATE TABLE IF NOT EXISTS users (
+  jid                       TEXT PRIMARY KEY,
+  polish_level              INTEGER,
+  tone                      TEXT,                -- 'formal' | 'neutral' | 'casual'
+  source_language_hint      TEXT,                -- ISO-639-1 code
+  voice_translate           INTEGER,             -- nullable bool
+  show_source_label         INTEGER,             -- nullable bool
+  show_processing_reaction  INTEGER,             -- nullable bool
+  created_at                TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at                TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Magic-link tokens issued via DM. One active row per user (UNIQUE on user_jid):
+-- a re-issue REPLACEs the prior row, which invalidates the old token.
+CREATE TABLE IF NOT EXISTS settings_tokens (
+  token       TEXT PRIMARY KEY,
+  user_jid    TEXT NOT NULL UNIQUE,
+  expires_at  TEXT NOT NULL,                    -- RFC3339 / ISO-8601 UTC
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_settings_tokens_expires ON settings_tokens(expires_at);

@@ -40,12 +40,37 @@ export type TranslateInput =
   | { kind: 'voice'; audioBase64: string; mimeType: string }
   | { kind: 'text'; text: string };
 
+export type Tone = 'formal' | 'neutral' | 'casual';
+
 export type TranslateOptions = {
   targetLanguages: string[];
   /** Voice-only. 0=verbatim, 1=light fillers, 2=medium cleanup, 3=high (rewrite for clarity). */
   polishLevel: number;
   showSourceLabel: boolean;
+  /** Optional register for translations. Undefined = no instruction. */
+  tone?: Tone;
+  /** Optional ISO-639-1 code that the speaker usually uses. Biases source detection. */
+  sourceLanguageHint?: string;
 };
+
+function toneInstruction(tone: Tone | undefined): string {
+  if (!tone) return '';
+  switch (tone) {
+    case 'formal':
+      return 'Use a formal register and vocabulary; avoid slang and contractions.';
+    case 'casual':
+      return 'Use a casual, conversational register; contractions and informal vocabulary are fine.';
+    case 'neutral':
+    default:
+      return 'Use a neutral register that fits everyday conversation.';
+  }
+}
+
+function hintInstruction(hint: string | undefined): string {
+  if (!hint) return '';
+  const name = LANGUAGE_NAMES[hint] ?? hint;
+  return `The speaker usually speaks ${name} (${hint}). Bias source-language detection toward this code, but override if the input is clearly in a different language from the list.`;
+}
 
 function polishInstruction(level: number, kind: 'voice' | 'text'): string {
   if (kind === 'text') return ''; // Polishing only applies to voice transcripts.
@@ -85,12 +110,16 @@ function buildPrompt(opts: TranslateOptions, kind: 'voice' | 'text'): string {
   const transcriptStep = kind === 'voice'
     ? `Produce a transcript in the source language. ${polishInstruction(opts.polishLevel, 'voice')}`
     : 'Use the input text verbatim.';
+  const speakerHints = [hintInstruction(opts.sourceLanguageHint), toneInstruction(opts.tone)]
+    .filter(Boolean)
+    .join(' ');
+  const speakerHintsBlock = speakerHints ? `\n\nSpeaker preferences: ${speakerHints}` : '';
   return `You are a translator inside a multilingual WhatsApp group.
 
 Languages in this group (ISO-639-1 code → name):
 ${labelled}
 
-The input is ${kind === 'voice' ? 'a voice message (audio)' : 'a text message'}.
+The input is ${kind === 'voice' ? 'a voice message (audio)' : 'a text message'}.${speakerHintsBlock}
 
 Steps:
 1. Identify the source language (must be one of the codes above).

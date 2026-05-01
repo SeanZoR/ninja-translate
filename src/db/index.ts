@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,67 @@ for (const m of migrations) {
     throw err;
   }
 }
+
+// One-shot sweep at startup. Cheap (indexed on expires_at).
+db.exec(`DELETE FROM settings_tokens WHERE expires_at <= datetime('now')`);
+
+// 30 days. Re-DMing the bot rotates the token if the prior one is expired,
+// otherwise the same row is returned (so a user-shared link keeps working).
+const SETTINGS_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export type Tone = 'formal' | 'neutral' | 'casual';
+
+export type UserRow = {
+  jid: string;
+  polish_level: number | null;
+  tone: string | null;
+  source_language_hint: string | null;
+  voice_translate: number | null;
+  show_source_label: number | null;
+  show_processing_reaction: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type User = {
+  jid: string;
+  polishLevel: number | null;
+  tone: Tone | null;
+  sourceLanguageHint: string | null;
+  voiceTranslate: boolean | null;
+  showSourceLabel: boolean | null;
+  showProcessingReaction: boolean | null;
+};
+
+export type UserOverrides = Omit<User, 'jid'>;
+
+function toBoolNullable(v: number | null): boolean | null {
+  return v === null ? null : !!v;
+}
+
+function fromBoolNullable(v: boolean | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  return v ? 1 : 0;
+}
+
+function rowToUser(r: UserRow): User {
+  return {
+    jid: r.jid,
+    polishLevel: r.polish_level,
+    tone: (r.tone as Tone | null) ?? null,
+    sourceLanguageHint: r.source_language_hint,
+    voiceTranslate: toBoolNullable(r.voice_translate),
+    showSourceLabel: toBoolNullable(r.show_source_label),
+    showProcessingReaction: toBoolNullable(r.show_processing_reaction),
+  };
+}
+
+export type SettingsTokenRow = {
+  token: string;
+  user_jid: string;
+  expires_at: string;
+  created_at: string;
+};
 
 export type GroupRow = {
   jid: string;
@@ -185,6 +247,40 @@ const stmts = {
      WHERE substr(date, 1, 7) = strftime('%Y-%m', 'now')
      GROUP BY group_jid
   `),
+
+  getUser: db.prepare<[string], UserRow>('SELECT * FROM users WHERE jid = ?'),
+  upsertUser: db.prepare(`
+    INSERT INTO users (jid, polish_level, tone, source_language_hint,
+                       voice_translate, show_source_label, show_processing_reaction)
+    VALUES (@jid, @polish_level, @tone, @source_language_hint,
+            @voice_translate, @show_source_label, @show_processing_reaction)
+    ON CONFLICT(jid) DO UPDATE SET
+      polish_level = excluded.polish_level,
+      tone = excluded.tone,
+      source_language_hint = excluded.source_language_hint,
+      voice_translate = excluded.voice_translate,
+      show_source_label = excluded.show_source_label,
+      show_processing_reaction = excluded.show_processing_reaction,
+      updated_at = datetime('now')
+  `),
+
+  getActiveTokenForUser: db.prepare<[string], SettingsTokenRow>(
+    `SELECT * FROM settings_tokens WHERE user_jid = ? AND expires_at > datetime('now')`,
+  ),
+  upsertTokenForUser: db.prepare(`
+    INSERT INTO settings_tokens (token, user_jid, expires_at)
+    VALUES (@token, @user_jid, @expires_at)
+    ON CONFLICT(user_jid) DO UPDATE SET
+      token = excluded.token,
+      expires_at = excluded.expires_at,
+      created_at = datetime('now')
+  `),
+  getTokenRow: db.prepare<[string], SettingsTokenRow>(
+    `SELECT * FROM settings_tokens WHERE token = ? AND expires_at > datetime('now')`,
+  ),
+  purgeExpiredTokens: db.prepare(
+    `DELETE FROM settings_tokens WHERE expires_at <= datetime('now')`,
+  ),
 };
 
 export const repo = {
@@ -294,6 +390,50 @@ export const repo = {
   },
   monthCostAll(): { group_jid: string; total: number }[] {
     return stmts.monthCostAll.all() as any;
+  },
+
+  getUser(jid: string): User | null {
+    const row = stmts.getUser.get(jid);
+    return row ? rowToUser(row) : null;
+  },
+  /**
+   * Upserts a user row using the provided overrides. Any field left undefined
+   * is treated as "clear to NULL" (inherit from group). Pass `null` explicitly
+   * for the same effect; pass a concrete value to set the override.
+   */
+  upsertUser(jid: string, o: Partial<UserOverrides>): void {
+    stmts.upsertUser.run({
+      jid,
+      polish_level: o.polishLevel ?? null,
+      tone: o.tone ?? null,
+      source_language_hint: o.sourceLanguageHint ?? null,
+      voice_translate: fromBoolNullable(o.voiceTranslate ?? null),
+      show_source_label: fromBoolNullable(o.showSourceLabel ?? null),
+      show_processing_reaction: fromBoolNullable(o.showProcessingReaction ?? null),
+    });
+  },
+
+  /**
+   * Returns the current active token for `jid`, issuing a new 32-byte hex token
+   * with a 30-day TTL if none is active. The UNIQUE(user_jid) constraint means
+   * re-issuing replaces the old row, invalidating the prior token.
+   */
+  getOrCreateSettingsToken(jid: string): { token: string; expiresAt: string; created: boolean } {
+    const existing = stmts.getActiveTokenForUser.get(jid);
+    if (existing) {
+      return { token: existing.token, expiresAt: existing.expires_at, created: false };
+    }
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + SETTINGS_TOKEN_TTL_MS).toISOString();
+    stmts.upsertTokenForUser.run({ token, user_jid: jid, expires_at: expiresAt });
+    return { token, expiresAt, created: true };
+  },
+  userJidForToken(token: string): string | null {
+    const row = stmts.getTokenRow.get(token);
+    return row ? row.user_jid : null;
+  },
+  purgeExpiredTokens(): number {
+    return stmts.purgeExpiredTokens.run().changes;
   },
 
   getSetting<T>(key: string, fallback: T): T {

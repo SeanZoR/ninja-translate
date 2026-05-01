@@ -36,6 +36,11 @@ export const config = {
   // Comma-separated list of origins allowed to call the API (CF Pages domain).
   apiAllowedOrigins: optional('API_ALLOWED_ORIGINS', 'https://translate.your-domain.com').split(',').map(s => s.trim()),
 
+  // Public, *un*-gated base URL for the per-user settings page (e.g. `https://u.translate.your-domain.com`).
+  // The bot embeds magic-link URLs like `<base>/u/<token>` into DM auto-replies.
+  // When unset, DM replies fall back to `http://<adminHost>:<adminPort>` (local-dev path).
+  publicUserBaseUrl: process.env.PUBLIC_USER_BASE_URL ?? null,
+
   telegramAlertChatId: process.env.ADMIN_TELEGRAM_CHAT_ID ?? null,
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
 

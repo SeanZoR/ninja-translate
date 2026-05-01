@@ -30,6 +30,9 @@ Gemini 2.5 Flash for native-audio understanding in one round trip.
 - 💬 **Text translation on `@mention`** — no spam in active chats
 - 🌐 **N-language fan-out per group** — any ISO code Gemini supports
 - 🧹 **Polish levels (0–3)** — verbatim → cleaned-up → rewrite-for-clarity
+- 👤 **Per-user overrides** — speakers DM the bot for a magic link to a
+  personal settings page (polish, tone, language hint, etc.) that overrides
+  the group config for their own messages
 - 💰 **Pre-flight cost guard** — skip oversize audio before paying for it
 - 📉 **Monthly budget cap per group** — soft pause when exceeded, resume on bump
 - 🔐 **Cloudflare Access-gated admin dashboard** — JWT verified server-side
@@ -106,6 +109,7 @@ CLI, AWS SSM, etc. See [`.env.example`](.env.example) for the full list.
 | `ADMIN_HOST` |  | Defaults to `127.0.0.1`. Keep on loopback in production. |
 | `ADMIN_PORT` |  | Defaults to `7878`. |
 | `API_ALLOWED_ORIGINS` |  | Comma-separated dashboard origins for CORS. |
+| `PUBLIC_USER_BASE_URL` | for per-user prod | Public hostname for the magic-link settings page (e.g. `https://u.translate.<domain>`). Must NOT be behind CF Access. |
 | `CF_ACCESS_TEAM_DOMAIN` | for prod gate | e.g. `your-team.cloudflareaccess.com`. |
 | `CF_ACCESS_AUD` | for prod gate | AUD tag from the CF Access app. When unset, the JWT middleware bypasses (local-dev path). |
 | `NINJA_HOME` |  | Override the data directory (default `~/.ninja-translate`). |
@@ -148,6 +152,19 @@ and the systemd unit.
 API_BASE=https://api.translate.your-domain.com ./scripts/build-web.sh
 wrangler pages deploy web-dist --project-name=ninja-translate-dashboard
 ```
+
+### Per-user settings page (public hostname)
+
+The per-user magic-link page (`/u/:token`) and its API (`/api/u/:token/me`)
+must be reachable WITHOUT CF Access — the token in the URL is the auth.
+Add a second CF Tunnel hostname pointing to the same `127.0.0.1:7878` Hono
+process, e.g. `u.translate.<your-domain>`, and **do not** include it in the
+CF Access app from the next section. Set `PUBLIC_USER_BASE_URL=https://u.translate.<your-domain>`
+in the bot's env so DM auto-replies link to the right hostname.
+
+The onboarding video on that page is rendered locally and committed to
+`web/assets/videos/how-to.mp4` via `pnpm video:render` before each deploy.
+Both `web/assets/videos/` and `remotion/out/` are gitignored.
 
 ### Cloudflare Access
 

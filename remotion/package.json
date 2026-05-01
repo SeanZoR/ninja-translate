@@ -1,0 +1,21 @@
+{
+  "name": "ninja-translate-remotion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remotion compositions for Ninja Translate (e.g. the onboarding how-to video).",
+  "scripts": {
+    "render": "remotion render src/Root.tsx HowTo out/how-to.mp4 --codec=h264",
+    "preview": "remotion preview src/Root.tsx"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.380",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.380"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.3"
+  }
+}

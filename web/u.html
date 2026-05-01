@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Your Ninja Translate settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- API_BASE_PLACEHOLDER: replaced by deploy step. Empty = same-origin. -->
+  <meta name="api-base" content="" />
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/u.css" />
+</head>
+<body x-data="userPage()" x-init="init()">
+
+  <header class="u-header">
+    <div class="brand">🥷 Ninja Translate</div>
+    <div class="status">
+      <span x-show="state === 'ready'" class="ok">● your settings</span>
+      <span x-show="state === 'expired'" class="warn">● link expired</span>
+      <span x-show="state === 'loading'" class="hint">loading...</span>
+    </div>
+  </header>
+
+  <main class="u-main">
+
+    <!-- ONBOARDING: shown on first visit only (gated by localStorage) -->
+    <section x-show="state === 'ready' && showIntro" class="u-intro">
+      <h1>Your translation prefs, in one place</h1>
+      <p>
+        Ninja Translate lives in WhatsApp groups and translates voice notes
+        and <code>@mentions</code> across every language the group speaks.
+        Tweak the dials below and they'll follow you to every group the bot is in.
+      </p>
+      <video x-show="hasVideo"
+             src="/assets/videos/how-to.mp4"
+             controls playsinline preload="metadata"
+             class="u-video"
+             @error="hasVideo = false"></video>
+      <div class="actions">
+        <button type="button" class="primary" @click="dismissIntro()">Got it</button>
+      </div>
+    </section>
+
+    <!-- EXPIRED state -->
+    <section x-show="state === 'expired'" class="u-card">
+      <h2>This link has expired</h2>
+      <p>Send any message to the Ninja bot on WhatsApp to get a fresh link. Your saved preferences are unchanged.</p>
+    </section>
+
+    <!-- READY: settings UI -->
+    <section x-show="state === 'ready'">
+
+      <!-- PRIMARY: translation style -->
+      <div class="u-card primary">
+        <h2>Translation style</h2>
+        <p class="hint">The two knobs people actually want to tweak.</p>
+
+        <div class="u-field">
+          <label class="u-field-label">Polish level <small class="hint">(voice only — how much your transcript gets cleaned up before translating)</small></label>
+          <div class="u-radio-stack">
+            <template x-for="opt in POLISH_OPTIONS" :key="opt.value">
+              <label class="u-radio" :class="{ disabled: f.polishInherit }">
+                <input type="radio"
+                       :value="opt.value"
+                       x-model.number="f.polishLevel"
+                       :disabled="f.polishInherit" />
+                <span class="u-radio-title" x-text="opt.title"></span>
+                <span class="u-radio-sub hint" x-text="opt.sub"></span>
+              </label>
+            </template>
+          </div>
+          <label class="u-inherit"><input type="checkbox" x-model="f.polishInherit" /> Inherit from group</label>
+        </div>
+
+        <div class="u-field">
+          <label class="u-field-label">Tone <small class="hint">(register / formality of translations)</small></label>
+          <div class="u-segmented" :class="{ disabled: f.toneInherit }">
+            <template x-for="opt in TONE_OPTIONS" :key="opt.value">
+              <button type="button"
+                      class="u-seg"
+                      :class="{ selected: f.tone === opt.value }"
+                      :disabled="f.toneInherit"
+                      @click="f.tone = opt.value">
+                <span x-text="opt.title"></span>
+              </button>
+            </template>
+          </div>
+          <label class="u-inherit"><input type="checkbox" x-model="f.toneInherit" /> Inherit from group</label>
+        </div>
+      </div>
+
+      <!-- ADVANCED: tucked under <details> -->
+      <details class="u-advanced">
+        <summary>More options</summary>
+
+        <div class="u-card">
+          <div class="u-field">
+            <label class="u-field-label">Speaker language hint <small class="hint">(bias source detection toward the language you usually speak)</small></label>
+            <select x-model="f.sourceLanguageHint" :disabled="f.hintInherit">
+              <option :value="null">Auto-detect</option>
+              <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+                <option :value="lang.code" x-text="lang.flag + ' ' + lang.name + ' (' + lang.code + ')'"></option>
+              </template>
+            </select>
+            <label class="u-inherit"><input type="checkbox" x-model="f.hintInherit" /> Inherit from group</label>
+          </div>
+
+          <div class="u-field">
+            <label class="u-field-label">Translate my voice notes</label>
+            <div class="u-segmented" :class="{ disabled: f.voiceInherit }">
+              <button type="button" class="u-seg" :class="{ selected: f.voiceTranslate === true }"  :disabled="f.voiceInherit" @click="f.voiceTranslate = true">Yes</button>
+              <button type="button" class="u-seg" :class="{ selected: f.voiceTranslate === false }" :disabled="f.voiceInherit" @click="f.voiceTranslate = false">No, leave them alone</button>
+            </div>
+            <label class="u-inherit"><input type="checkbox" x-model="f.voiceInherit" /> Inherit from group</label>
+          </div>
+
+          <div class="u-field">
+            <label class="u-field-label">Show source label under translations</label>
+            <div class="u-segmented" :class="{ disabled: f.labelInherit }">
+              <button type="button" class="u-seg" :class="{ selected: f.showSourceLabel === true }"  :disabled="f.labelInherit" @click="f.showSourceLabel = true">Show</button>
+              <button type="button" class="u-seg" :class="{ selected: f.showSourceLabel === false }" :disabled="f.labelInherit" @click="f.showSourceLabel = false">Hide</button>
+            </div>
+            <label class="u-inherit"><input type="checkbox" x-model="f.labelInherit" /> Inherit from group</label>
+          </div>
+
+          <div class="u-field">
+            <label class="u-field-label">🌐 reaction on my messages while translating</label>
+            <div class="u-segmented" :class="{ disabled: f.reactionInherit }">
+              <button type="button" class="u-seg" :class="{ selected: f.showProcessingReaction === true }"  :disabled="f.reactionInherit" @click="f.showProcessingReaction = true">Show</button>
+              <button type="button" class="u-seg" :class="{ selected: f.showProcessingReaction === false }" :disabled="f.reactionInherit" @click="f.showProcessingReaction = false">Hide</button>
+            </div>
+            <label class="u-inherit"><input type="checkbox" x-model="f.reactionInherit" /> Inherit from group</label>
+          </div>
+        </div>
+      </details>
+
+      <div class="u-save-bar">
+        <button type="button" class="primary" :disabled="busy" @click="save()">
+          <span x-show="!busy">Save</span>
+          <span x-show="busy">Saving…</span>
+        </button>
+        <button type="button" :disabled="busy" @click="resetAll()">Reset all to group defaults</button>
+        <span x-show="savedAt" class="success" x-text="'Saved ✓ ' + savedAt"></span>
+        <span x-show="error" class="warn" x-text="error"></span>
+      </div>
+    </section>
+  </main>
+
+  <script src="/u.js"></script>
+</body>
+</html>

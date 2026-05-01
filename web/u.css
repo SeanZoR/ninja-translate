@@ -1,0 +1,169 @@
+/* Page-specific overrides for the user-settings page. Inherits from styles.css. */
+
+.u-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.u-main {
+  padding: 24px 20px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.u-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.u-card.primary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(116, 225, 192, 0.15);
+}
+.u-card.primary h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+.u-intro {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.u-intro h1 {
+  margin-top: 0;
+  font-size: 22px;
+}
+.u-intro p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.u-video {
+  width: 100%;
+  max-width: 640px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin: 12px 0;
+  background: var(--bg);
+}
+
+.u-field {
+  margin-top: 16px;
+}
+.u-field-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.u-radio-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.u-radio {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--bg);
+}
+.u-radio:hover { border-color: var(--accent); }
+.u-radio.disabled { opacity: 0.5; cursor: not-allowed; }
+.u-radio-title { font-weight: 500; color: var(--text); }
+.u-radio-sub { grid-column: 2; }
+
+.u-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.u-segmented.disabled { opacity: 0.5; pointer-events: none; }
+.u-seg {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 16px;
+  cursor: pointer;
+  font: inherit;
+}
+.u-seg:last-child { border-right: none; }
+.u-seg.selected {
+  background: rgba(116, 225, 192, 0.15);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.u-inherit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.u-inherit input { accent-color: var(--accent); }
+
+.u-advanced {
+  margin-top: 8px;
+}
+.u-advanced > summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  list-style: none;
+  font-weight: 500;
+}
+.u-advanced > summary::-webkit-details-marker { display: none; }
+.u-advanced > summary::before {
+  content: '▸ ';
+  display: inline-block;
+  width: 14px;
+  transition: transform 0.15s ease;
+}
+.u-advanced[open] > summary::before {
+  transform: rotate(90deg);
+}
+.u-advanced[open] > summary {
+  margin-bottom: 12px;
+}
+
+.u-save-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+
+select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font: inherit;
+  min-width: 220px;
+}
+select:disabled { opacity: 0.5; }
