@@ -43,7 +43,7 @@
     "video:render": "cd remotion && npm install --silent && npm run render && mkdir -p ../web/assets/videos && cp out/how-to.mp4 ../web/assets/videos/how-to.mp4"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.682.0",
+    "@aws-sdk/client-s3": "^3.1040.0",
     "@google/generative-ai": "^0.24.1",
     "@hono/node-server": "^1.13.0",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
