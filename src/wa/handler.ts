@@ -54,7 +54,10 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     : 'other';
   console.log(`[wa.recv] from=${remoteJid} sender=${msg.key.participant ?? msg.participant ?? '?'} kind=${kind} fromMe=${msg.key.fromMe}`);
   if (!remoteJid) return;
-  if (remoteJid.endsWith('@s.whatsapp.net')) {
+  // DMs land on @s.whatsapp.net (legacy phone-form JID) or @lid (modern
+  // privacy-form). Either way, they aren't a group, and we want to reply
+  // with the settings link.
+  if (remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@lid')) {
     await handleDirectMessage(sock, remoteJid, msg);
     return;
   }
