@@ -59,6 +59,7 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
   // the page — it'll show an "expired link" state from the API 404.
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const webRoot = path.resolve(__dirname, '../../web');
+  const webRootRel = path.relative(process.cwd(), webRoot) || './web';
   const userPagePath = path.join(webRoot, 'u.html');
   app.get('/u/:token', (c) => {
     try {
@@ -70,13 +71,24 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
     }
   });
 
-  // Local-dev convenience: serve the static dashboard from web/ at the same origin
-  // when CF Access is not configured. In production CF Pages serves the dashboard.
+  // Public-page static assets — always served, even in production, since the
+  // public hostname doesn't go through CF Pages. Whitelist explicit paths so
+  // we don't accidentally expose the admin dashboard (index.html, app.js) on
+  // the un-gated hostname.
+  const publicStatic = serveStatic({ root: webRootRel });
+  app.use('/styles.css', publicStatic);
+  app.use('/u.css', publicStatic);
+  app.use('/u.js', publicStatic);
+  app.use('/assets/*', publicStatic);
+
+  // Local-dev convenience: expose the full web/ tree at the same origin so
+  // the admin dashboard works without CF Pages. In production CF Pages serves
+  // the dashboard, so we don't enable the catch-all there.
   if (!config.cfAccessAud) {
     app.use(
       '/*',
       serveStatic({
-        root: path.relative(process.cwd(), webRoot) || './web',
+        root: webRootRel,
         rewriteRequestPath: (p) => (p === '/' ? '/index.html' : p),
       }),
     );
