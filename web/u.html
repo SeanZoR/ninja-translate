@@ -3,148 +3,162 @@
 <head>
   <meta charset="utf-8" />
   <title>Your Ninja Translate settings</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F2F7" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <!-- API_BASE_PLACEHOLDER: replaced by deploy step. Empty = same-origin. -->
   <meta name="api-base" content="" />
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-  <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/u.css" />
 </head>
 <body x-data="userPage()" x-init="init()">
 
-  <header class="u-header">
-    <div class="brand">🥷 Ninja Translate</div>
-    <div class="status">
-      <span x-show="state === 'ready'" class="ok">● your settings</span>
-      <span x-show="state === 'expired'" class="warn">● link expired</span>
-      <span x-show="state === 'loading'" class="hint">loading...</span>
-    </div>
-  </header>
+  <main class="page">
 
-  <main class="u-main">
+    <!-- Brand chip + page title -->
+    <header class="hero">
+      <div class="brand-row">
+        <span class="brand">🥷 Ninja Translate</span>
+        <span class="status-pill" :class="state" x-show="state !== 'loading'" x-text="state === 'ready' ? 'Live' : 'Expired'"></span>
+      </div>
+      <h1 class="title">Your settings</h1>
+      <p class="subtitle">These follow you to every group the bot is in.</p>
+    </header>
 
-    <!-- ONBOARDING: shown on first visit only (gated by localStorage) -->
-    <section x-show="state === 'ready' && showIntro" class="u-intro">
-      <h1>Your translation prefs, in one place</h1>
-      <p>
-        Ninja Translate lives in WhatsApp groups and translates voice notes
-        and <code>@mentions</code> across every language the group speaks.
-        Tweak the dials below and they'll follow you to every group the bot is in.
-      </p>
-      <video x-show="hasVideo"
-             src="/assets/videos/how-to.mp4"
-             controls playsinline preload="metadata"
-             class="u-video"
-             @error="hasVideo = false"></video>
-      <div class="actions">
-        <button type="button" class="primary" @click="dismissIntro()">Got it</button>
+    <!-- Loading -->
+    <div x-show="state === 'loading'" class="empty-state">Loading…</div>
+
+    <!-- Expired -->
+    <section x-show="state === 'expired'">
+      <div class="card error-card">
+        <p class="error-icon">🔗</p>
+        <h2>This link has expired</h2>
+        <p>Send any message to the Ninja bot on WhatsApp to get a fresh link. Your saved preferences are unchanged.</p>
       </div>
     </section>
 
-    <!-- EXPIRED state -->
-    <section x-show="state === 'expired'" class="u-card">
-      <h2>This link has expired</h2>
-      <p>Send any message to the Ninja bot on WhatsApp to get a fresh link. Your saved preferences are unchanged.</p>
-    </section>
+    <!-- READY -->
+    <template x-if="state === 'ready'">
+      <div>
 
-    <!-- READY: settings UI -->
-    <section x-show="state === 'ready'">
+        <!-- Onboarding (first-visit) -->
+        <section x-show="showIntro" class="intro card">
+          <h2>Welcome 👋</h2>
+          <p>Ninja translates voice notes and <code>@mentions</code> across every language people speak in your WhatsApp groups. Tweak the dials below — they follow you everywhere the bot lives.</p>
+          <video x-show="hasVideo"
+                 src="/assets/videos/how-to.mp4"
+                 controls playsinline preload="metadata"
+                 @error="hasVideo = false"></video>
+          <button type="button" class="btn-primary" @click="dismissIntro()">Got it</button>
+        </section>
 
-      <!-- PRIMARY: translation style -->
-      <div class="u-card primary">
-        <h2>Translation style</h2>
-        <p class="hint">The two knobs people actually want to tweak.</p>
-
-        <div class="u-field">
-          <label class="u-field-label">Polish level <small class="hint">(voice only — how much your transcript gets cleaned up before translating)</small></label>
-          <div class="u-radio-stack">
-            <template x-for="opt in POLISH_OPTIONS" :key="opt.value">
-              <label class="u-radio" :class="{ disabled: f.polishInherit }">
-                <input type="radio"
-                       :value="opt.value"
-                       x-model.number="f.polishLevel"
-                       :disabled="f.polishInherit" />
-                <span class="u-radio-title" x-text="opt.title"></span>
-                <span class="u-radio-sub hint" x-text="opt.sub"></span>
-              </label>
-            </template>
-          </div>
-          <label class="u-inherit"><input type="checkbox" x-model="f.polishInherit" /> Inherit from group</label>
+        <!-- ════════ POLISH (PRIMARY) ════════ -->
+        <p class="section-header">Polish level</p>
+        <div class="card">
+          <template x-for="opt in POLISH_OPTIONS" :key="opt.value">
+            <div class="row row-selectable" @click="f.polishLevel = opt.value">
+              <div class="row-stack">
+                <span class="row-label" x-text="opt.title"></span>
+                <span class="row-sub" x-text="opt.sub"></span>
+              </div>
+              <span class="row-check" x-show="f.polishLevel === opt.value">✓</span>
+            </div>
+          </template>
         </div>
+        <p class="section-footer">Voice only — how much your transcript gets cleaned up before translating.</p>
 
-        <div class="u-field">
-          <label class="u-field-label">Tone <small class="hint">(register / formality of translations)</small></label>
-          <div class="u-segmented" :class="{ disabled: f.toneInherit }">
-            <template x-for="opt in TONE_OPTIONS" :key="opt.value">
-              <button type="button"
-                      class="u-seg"
-                      :class="{ selected: f.tone === opt.value }"
-                      :disabled="f.toneInherit"
-                      @click="f.tone = opt.value">
-                <span x-text="opt.title"></span>
-              </button>
-            </template>
+        <!-- ════════ TONE (PRIMARY) ════════ -->
+        <p class="section-header">Tone</p>
+        <div class="card">
+          <div class="row row-segmented">
+            <div class="segmented">
+              <template x-for="opt in TONE_OPTIONS" :key="opt.value">
+                <button type="button"
+                        :class="{ active: f.tone === opt.value }"
+                        @click="f.tone = opt.value">
+                  <span x-text="opt.title"></span>
+                </button>
+              </template>
+            </div>
           </div>
-          <label class="u-inherit"><input type="checkbox" x-model="f.toneInherit" /> Inherit from group</label>
         </div>
-      </div>
+        <p class="section-footer">The register and formality of your translations.</p>
 
-      <!-- ADVANCED: tucked under <details> -->
-      <details class="u-advanced">
-        <summary>More options</summary>
+        <!-- visual divider before secondary group -->
+        <p class="section-divider-label">More</p>
 
-        <div class="u-card">
-          <div class="u-field">
-            <label class="u-field-label">Speaker language hint <small class="hint">(bias source detection toward the language you usually speak)</small></label>
-            <select x-model="f.sourceLanguageHint" :disabled="f.hintInherit">
+        <!-- ════════ SPEAKER LANGUAGE ════════ -->
+        <p class="section-header">Speaker language</p>
+        <div class="card">
+          <div class="row">
+            <label for="lang-hint" class="row-label">Usually speak</label>
+            <select id="lang-hint" name="lang-hint" class="picker" x-model="f.sourceLanguageHint">
               <option :value="null">Auto-detect</option>
               <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
-                <option :value="lang.code" x-text="lang.flag + ' ' + lang.name + ' (' + lang.code + ')'"></option>
+                <option :value="lang.code" x-text="lang.flag + ' ' + lang.name"></option>
               </template>
             </select>
-            <label class="u-inherit"><input type="checkbox" x-model="f.hintInherit" /> Inherit from group</label>
-          </div>
-
-          <div class="u-field">
-            <label class="u-field-label">Translate my voice notes</label>
-            <div class="u-segmented" :class="{ disabled: f.voiceInherit }">
-              <button type="button" class="u-seg" :class="{ selected: f.voiceTranslate === true }"  :disabled="f.voiceInherit" @click="f.voiceTranslate = true">Yes</button>
-              <button type="button" class="u-seg" :class="{ selected: f.voiceTranslate === false }" :disabled="f.voiceInherit" @click="f.voiceTranslate = false">No, leave them alone</button>
-            </div>
-            <label class="u-inherit"><input type="checkbox" x-model="f.voiceInherit" /> Inherit from group</label>
-          </div>
-
-          <div class="u-field">
-            <label class="u-field-label">Show source label under translations</label>
-            <div class="u-segmented" :class="{ disabled: f.labelInherit }">
-              <button type="button" class="u-seg" :class="{ selected: f.showSourceLabel === true }"  :disabled="f.labelInherit" @click="f.showSourceLabel = true">Show</button>
-              <button type="button" class="u-seg" :class="{ selected: f.showSourceLabel === false }" :disabled="f.labelInherit" @click="f.showSourceLabel = false">Hide</button>
-            </div>
-            <label class="u-inherit"><input type="checkbox" x-model="f.labelInherit" /> Inherit from group</label>
-          </div>
-
-          <div class="u-field">
-            <label class="u-field-label">🌐 reaction on my messages while translating</label>
-            <div class="u-segmented" :class="{ disabled: f.reactionInherit }">
-              <button type="button" class="u-seg" :class="{ selected: f.showProcessingReaction === true }"  :disabled="f.reactionInherit" @click="f.showProcessingReaction = true">Show</button>
-              <button type="button" class="u-seg" :class="{ selected: f.showProcessingReaction === false }" :disabled="f.reactionInherit" @click="f.showProcessingReaction = false">Hide</button>
-            </div>
-            <label class="u-inherit"><input type="checkbox" x-model="f.reactionInherit" /> Inherit from group</label>
           </div>
         </div>
-      </details>
+        <p class="section-footer">Helps source detection on accented or short clips.</p>
 
-      <div class="u-save-bar">
-        <button type="button" class="primary" :disabled="busy" @click="save()">
-          <span x-show="!busy">Save</span>
-          <span x-show="busy">Saving…</span>
-        </button>
-        <button type="button" :disabled="busy" @click="resetAll()">Reset all to group defaults</button>
-        <span x-show="savedAt" class="success" x-text="'Saved ✓ ' + savedAt"></span>
-        <span x-show="error" class="warn" x-text="error"></span>
+        <!-- ════════ VOICE NOTES ════════ -->
+        <p class="section-header">Voice notes</p>
+        <div class="card">
+          <div class="row">
+            <span class="row-label">Translate my voice notes</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.voiceTranslate" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <p class="section-footer">Off = your voice notes won't trigger translations. Other people's are unaffected.</p>
+
+        <!-- ════════ REPLY ════════ -->
+        <p class="section-header">Reply formatting</p>
+        <div class="card">
+          <div class="row">
+            <span class="row-label">Show source label</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.showSourceLabel" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span class="row-label">Show 🌐 while translating</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.showProcessingReaction" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <p class="section-footer">Both shown on your messages.</p>
+
+        <!-- spacer + reset card -->
+        <p class="section-header" aria-hidden="true">&nbsp;</p>
+        <div class="card destructive-card">
+          <button type="button" class="row row-button" @click="resetAll()" :disabled="busy">
+            <span class="row-label danger">Reset to defaults</span>
+          </button>
+        </div>
+        <p class="section-footer">Wipes your overrides — your messages will use each group's settings again.</p>
+
       </div>
-    </section>
+    </template>
+
   </main>
+
+  <!-- Fixed bottom save bar -->
+  <div class="action-bar" :class="{ visible: state === 'ready' }">
+    <p class="save-status" :class="{ success: !!savedAt && !error, error: !!error }"
+       x-text="error ? error : (savedAt ? ('Saved · ' + savedAt) : 'Tap Save when you\u2019re happy with your changes')"></p>
+    <button type="button" class="btn-primary" :disabled="busy" @click="save()">
+      <span x-show="!busy">Save</span>
+      <span x-show="busy">Saving…</span>
+    </button>
+  </div>
 
   <script src="/u.js"></script>
 </body>

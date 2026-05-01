@@ -54,21 +54,17 @@ function userPage() {
     savedAt: null,
     error: null,
 
-    // Form state mirrors the API shape, with companion `*Inherit` flags.
-    // When inherit is true, the override is sent as null (clear → inherit group).
+    // The form holds the *effective* current value for each setting. The
+    // user doesn't see "override vs inherit" — they just see and edit the
+    // current value. On save we persist these as overrides; "Reset to
+    // defaults" wipes overrides back to null so the group's value is used.
     f: {
       polishLevel: 2,
-      polishInherit: true,
       tone: 'neutral',
-      toneInherit: true,
       sourceLanguageHint: null,
-      hintInherit: true,
       voiceTranslate: true,
-      voiceInherit: true,
       showSourceLabel: true,
-      labelInherit: true,
       showProcessingReaction: false,
-      reactionInherit: true,
     },
 
     async init() {
@@ -96,31 +92,27 @@ function userPage() {
     applyServerState(data) {
       const o = data.overrides ?? {};
       const d = data.defaults ?? {};
-      // For each setting, an override of `null` means "inherit". The form
-      // shows the group default in that case so the user sees the current
-      // effective value before they tweak.
+      // Effective value = override if set, otherwise group default. Stash
+      // both so we can render and so reset works.
       this.f.polishLevel              = o.polishLevel              ?? d.polishLevel              ?? 2;
-      this.f.polishInherit            = o.polishLevel === null || o.polishLevel === undefined;
       this.f.tone                     = o.tone                     ?? d.tone                     ?? 'neutral';
-      this.f.toneInherit              = o.tone === null || o.tone === undefined;
       this.f.sourceLanguageHint       = o.sourceLanguageHint       ?? d.sourceLanguageHint       ?? null;
-      this.f.hintInherit              = o.sourceLanguageHint === null || o.sourceLanguageHint === undefined;
       this.f.voiceTranslate           = o.voiceTranslate           ?? d.voiceTranslate           ?? true;
-      this.f.voiceInherit             = o.voiceTranslate === null || o.voiceTranslate === undefined;
       this.f.showSourceLabel          = o.showSourceLabel          ?? d.showSourceLabel          ?? true;
-      this.f.labelInherit             = o.showSourceLabel === null || o.showSourceLabel === undefined;
       this.f.showProcessingReaction   = o.showProcessingReaction   ?? d.showProcessingReaction   ?? false;
-      this.f.reactionInherit          = o.showProcessingReaction === null || o.showProcessingReaction === undefined;
     },
 
     formToOverrides() {
+      // Always send the displayed values as explicit overrides. Picking the
+      // same value the group has means "lock me at this value" — that's
+      // simpler than asking the user to think about inheritance.
       return {
-        polishLevel:            this.f.polishInherit   ? null : this.f.polishLevel,
-        tone:                   this.f.toneInherit     ? null : this.f.tone,
-        sourceLanguageHint:     this.f.hintInherit     ? null : this.f.sourceLanguageHint,
-        voiceTranslate:         this.f.voiceInherit    ? null : !!this.f.voiceTranslate,
-        showSourceLabel:        this.f.labelInherit    ? null : !!this.f.showSourceLabel,
-        showProcessingReaction: this.f.reactionInherit ? null : !!this.f.showProcessingReaction,
+        polishLevel:            this.f.polishLevel,
+        tone:                   this.f.tone,
+        sourceLanguageHint:     this.f.sourceLanguageHint, // null = auto-detect, fine to send as null
+        voiceTranslate:         !!this.f.voiceTranslate,
+        showSourceLabel:        !!this.f.showSourceLabel,
+        showProcessingReaction: !!this.f.showProcessingReaction,
       };
     },
 
@@ -139,7 +131,7 @@ function userPage() {
           return;
         }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        this.savedAt = new Date().toLocaleTimeString();
+        this.savedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       } catch (err) {
         this.error = `Save failed: ${err.message ?? err}`;
       } finally {
@@ -148,13 +140,33 @@ function userPage() {
     },
 
     async resetAll() {
-      this.f.polishInherit = true;
-      this.f.toneInherit = true;
-      this.f.hintInherit = true;
-      this.f.voiceInherit = true;
-      this.f.labelInherit = true;
-      this.f.reactionInherit = true;
-      await this.save();
+      this.busy = true;
+      this.error = null;
+      try {
+        const token = tokenFromUrl();
+        const resp = await fetch(api(`/api/u/${encodeURIComponent(token)}/me`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            polishLevel: null,
+            tone: null,
+            sourceLanguageHint: null,
+            voiceTranslate: null,
+            showSourceLabel: null,
+            showProcessingReaction: null,
+          }),
+        });
+        if (resp.status === 404) { this.state = 'expired'; return; }
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        // Re-fetch to sync the form back to the group defaults.
+        const fresh = await fetch(api(`/api/u/${encodeURIComponent(token)}/me`));
+        if (fresh.ok) this.applyServerState(await fresh.json());
+        this.savedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      } catch (err) {
+        this.error = `Reset failed: ${err.message ?? err}`;
+      } finally {
+        this.busy = false;
+      }
     },
 
     dismissIntro() {
