@@ -72,14 +72,46 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
   });
 
   // Public-page static assets — always served, even in production, since the
-  // public hostname doesn't go through CF Pages. Whitelist explicit paths so
+  // public hostname doesn't go through CF Pages. Whitelist explicit files so
   // we don't accidentally expose the admin dashboard (index.html, app.js) on
-  // the un-gated hostname.
-  const publicStatic = serveStatic({ root: webRootRel });
-  app.use('/styles.css', publicStatic);
-  app.use('/u.css', publicStatic);
-  app.use('/u.js', publicStatic);
-  app.use('/assets/*', publicStatic);
+  // the un-gated hostname. Direct readFileSync rather than serveStatic — the
+  // latter's mount-point semantics don't match what we need here and the
+  // payload is tiny.
+  const PUBLIC_FILES: Record<string, string> = {
+    '/styles.css': 'text/css; charset=utf-8',
+    '/u.css': 'text/css; charset=utf-8',
+    '/u.js': 'application/javascript; charset=utf-8',
+  };
+  for (const [route, contentType] of Object.entries(PUBLIC_FILES)) {
+    const filename = route.slice(1);
+    app.get(route, (c) => {
+      try {
+        const body = fs.readFileSync(path.join(webRoot, filename));
+        return c.body(body, 200, { 'Content-Type': contentType });
+      } catch {
+        return c.text('not found', 404);
+      }
+    });
+  }
+  // /assets/* — currently just videos. Look up the file safely (no path
+  // traversal) and serve with a guessed content type.
+  app.get('/assets/*', (c) => {
+    const rel = c.req.path.replace(/^\/assets\//, '');
+    if (rel.includes('..') || rel.startsWith('/')) return c.text('not found', 404);
+    try {
+      const body = fs.readFileSync(path.join(webRoot, 'assets', rel));
+      const ext = path.extname(rel).toLowerCase();
+      const ct =
+        ext === '.mp4' ? 'video/mp4' :
+        ext === '.webm' ? 'video/webm' :
+        ext === '.png' ? 'image/png' :
+        ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+        'application/octet-stream';
+      return c.body(body, 200, { 'Content-Type': ct });
+    } catch {
+      return c.text('not found', 404);
+    }
+  });
 
   // Local-dev convenience: expose the full web/ tree at the same origin so
   // the admin dashboard works without CF Pages. In production CF Pages serves
