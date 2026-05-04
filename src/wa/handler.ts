@@ -41,6 +41,24 @@ function publicUserBaseUrl(): string {
   return config.publicUserBaseUrl ?? `http://${config.adminHost}:${config.adminPort}`;
 }
 
+type QuotedMessage = NonNullable<WAMessage['message']>;
+
+/**
+ * Pulls a translatable text payload out of a quoted message. Returns null for
+ * voice / sticker / location / etc. — quote-translate is text-only for now.
+ */
+function quotedTextFrom(quoted: QuotedMessage): string | null {
+  const t =
+    quoted.conversation
+    ?? quoted.extendedTextMessage?.text
+    ?? quoted.imageMessage?.caption
+    ?? quoted.videoMessage?.caption
+    ?? quoted.documentMessage?.caption
+    ?? null;
+  const trimmed = t?.trim();
+  return trimmed ? trimmed : null;
+}
+
 export type HandlerCtx = {
   getBotJid: () => string | null;
   /** LID-form JID for the bot's identity in modern WA mentions. */
@@ -130,11 +148,19 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     // verbatim in the translation. Removes both @<bare-digits> and any nearby
     // whitespace/punctuation so the cleaned text reads naturally.
     const cleanText = text.replace(/@\d{6,}\s*/g, '').trim();
-    if (!cleanText) {
-      console.log('[wa.recv] text ignored (only mention, no body)');
-      return;
+    let translateText = cleanText;
+    if (!translateText) {
+      // Mention-only reply: translate the quoted message instead.
+      const quoted = messageContent.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedText = quoted ? quotedTextFrom(quoted) : null;
+      if (!quotedText) {
+        console.log('[wa.recv] text ignored (only mention, no body, no quotable text)');
+        return;
+      }
+      console.log('[wa.recv] text mention with empty body → translating quoted message');
+      translateText = quotedText;
     }
-    await handleText(sock, msg, group, cleanText, { senderJid, senderName, waMessageId });
+    await handleText(sock, msg, group, translateText, { senderJid, senderName, waMessageId });
     return;
   }
 }
