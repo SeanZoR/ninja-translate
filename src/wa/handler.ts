@@ -115,9 +115,9 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   }
 
   const voice = messageContent.audioMessage;
-  const text = messageContent.conversation
-    ?? messageContent.extendedTextMessage?.text
-    ?? null;
+  // Pull text from plain text messages AND from media captions (image/video/
+  // document). Media captions carry their own contextInfo for mentions.
+  const textSource = textSourceFrom(messageContent);
 
   if (voice && group.voiceTranslate) {
     // Per-user opt-out: speaker explicitly disabled voice translation for their
@@ -131,27 +131,26 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     return;
   }
 
-  if (text && group.textTranslateOnMention) {
+  if (textSource && group.textTranslateOnMention) {
     const botJid = ctx.getBotJid();
     const botLid = ctx.getBotLid?.() ?? null;
     if (!botJid && !botLid) return;
-    const mentions =
-      messageContent.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+    const mentions = textSource.contextInfo?.mentionedJid ?? [];
     const wasMentioned = mentions.some((m) =>
       (botJid && m === botJid) || (botLid && m === botLid),
     );
     if (!wasMentioned) {
-      console.log(`[wa.recv] text ignored (no mention; mentions=${JSON.stringify(mentions)} bot=${botJid}/${botLid})`);
+      console.log(`[wa.recv] text ignored (no mention; source=${textSource.source} mentions=${JSON.stringify(mentions)} bot=${botJid}/${botLid})`);
       return;
     }
     // Strip @<digits> mention placeholders so Gemini doesn't echo them back
     // verbatim in the translation. Removes both @<bare-digits> and any nearby
     // whitespace/punctuation so the cleaned text reads naturally.
-    const cleanText = text.replace(/@\d{6,}\s*/g, '').trim();
+    const cleanText = textSource.text.replace(/@\d{6,}\s*/g, '').trim();
     let translateText = cleanText;
     if (!translateText) {
       // Mention-only reply: translate the quoted message instead.
-      const quoted = messageContent.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quoted = textSource.contextInfo?.quotedMessage;
       const quotedText = quoted ? quotedTextFrom(quoted) : null;
       if (!quotedText) {
         console.log('[wa.recv] text ignored (only mention, no body, no quotable text)');
@@ -163,6 +162,52 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     await handleText(sock, msg, group, translateText, { senderJid, senderName, waMessageId });
     return;
   }
+}
+
+type TextSource = {
+  text: string;
+  source: 'conversation' | 'extendedText' | 'imageCaption' | 'videoCaption' | 'documentCaption';
+  contextInfo: { mentionedJid?: string[] | null; quotedMessage?: QuotedMessage | null } | null | undefined;
+};
+
+/**
+ * Surfaces translatable text from any message type that can carry one — plain
+ * text, extended text, or image/video/document captions. Returns the matching
+ * contextInfo so mentions and quoted-message fallback work for captions too.
+ */
+function textSourceFrom(content: NonNullable<WAMessage['message']>): TextSource | null {
+  if (content.conversation) {
+    return { text: content.conversation, source: 'conversation', contextInfo: null };
+  }
+  if (content.extendedTextMessage?.text) {
+    return {
+      text: content.extendedTextMessage.text,
+      source: 'extendedText',
+      contextInfo: content.extendedTextMessage.contextInfo,
+    };
+  }
+  if (content.imageMessage?.caption) {
+    return {
+      text: content.imageMessage.caption,
+      source: 'imageCaption',
+      contextInfo: content.imageMessage.contextInfo,
+    };
+  }
+  if (content.videoMessage?.caption) {
+    return {
+      text: content.videoMessage.caption,
+      source: 'videoCaption',
+      contextInfo: content.videoMessage.contextInfo,
+    };
+  }
+  if (content.documentMessage?.caption) {
+    return {
+      text: content.documentMessage.caption,
+      source: 'documentCaption',
+      contextInfo: content.documentMessage.contextInfo,
+    };
+  }
+  return null;
 }
 
 async function handleVoice(
