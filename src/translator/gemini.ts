@@ -221,7 +221,7 @@ export async function translate(
   const model = client().getGenerativeModel({
     model: config.geminiModel,
     generationConfig: {
-      maxOutputTokens: 4096,
+      maxOutputTokens: 16384,
       temperature: 0.2,
     },
   });
@@ -238,8 +238,21 @@ export async function translate(
   const resp = await model.generateContent({ contents: [{ role: 'user', parts }] });
   const raw = resp.response.text();
   const usage = resp.response.usageMetadata;
+  const finishReason = resp.response.candidates?.[0]?.finishReason;
+  const truncated = finishReason === 'MAX_TOKENS';
+  if (truncated) {
+    console.warn(
+      `[translate] response truncated by MAX_TOKENS (kind=${input.kind}, outputTokens=${usage?.candidatesTokenCount ?? 0})`,
+    );
+  }
 
   const parsed = parseResponse(raw, opts);
+  if (truncated) {
+    for (const lang of Object.keys(parsed.translations)) {
+      parsed.translations[lang] = `${parsed.translations[lang]} […truncated]`;
+    }
+    if (parsed.sourceText) parsed.sourceText = `${parsed.sourceText} […truncated]`;
+  }
 
   const inputTokens = usage?.promptTokenCount ?? 0;
   const outputTokens = usage?.candidatesTokenCount ?? 0;
