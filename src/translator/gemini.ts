@@ -36,8 +36,10 @@ const FLAGS: Record<string, string> = {
   de: '🇩🇪',
 };
 
+export type AudioClip = { audioBase64: string; mimeType: string };
+
 export type TranslateInput =
-  | { kind: 'voice'; audioBase64: string; mimeType: string }
+  | { kind: 'voice'; clips: AudioClip[] }
   | { kind: 'text'; text: string };
 
 export type Tone = 'formal' | 'neutral' | 'casual';
@@ -103,7 +105,7 @@ function client(): GoogleGenerativeAI {
   return _client;
 }
 
-function buildPrompt(opts: TranslateOptions, kind: 'voice' | 'text'): string {
+function buildPrompt(opts: TranslateOptions, kind: 'voice' | 'text', clipCount = 1): string {
   const labelled = opts.targetLanguages
     .map((l) => `  - ${l} (${LANGUAGE_NAMES[l] ?? l})`)
     .join('\n');
@@ -114,12 +116,19 @@ function buildPrompt(opts: TranslateOptions, kind: 'voice' | 'text'): string {
     .filter(Boolean)
     .join(' ');
   const speakerHintsBlock = speakerHints ? `\n\nSpeaker preferences: ${speakerHints}` : '';
+  const inputDescription =
+    kind === 'text' ? 'a text message'
+    : clipCount > 1
+      ? `${clipCount} consecutive voice messages (audio) from the SAME speaker, provided in order. ` +
+        `Treat them as one continuous message: produce a SINGLE combined transcript covering all of them ` +
+        `(in order), and a SINGLE translation per language`
+      : 'a voice message (audio)';
   return `You are a translator inside a multilingual WhatsApp group.
 
 Languages in this group (ISO-639-1 code → name):
 ${labelled}
 
-The input is ${kind === 'voice' ? 'a voice message (audio)' : 'a text message'}.${speakerHintsBlock}
+The input is ${inputDescription}.${speakerHintsBlock}
 
 Steps:
 1. Identify the source language (must be one of the codes above).
@@ -225,13 +234,15 @@ export async function translate(
       temperature: 0.2,
     },
   });
-  const prompt = buildPrompt(opts, input.kind);
+  const prompt = buildPrompt(opts, input.kind, input.kind === 'voice' ? input.clips.length : 1);
 
   const parts: any[] =
     input.kind === 'voice'
       ? [
           { text: prompt },
-          { inlineData: { mimeType: input.mimeType, data: input.audioBase64 } },
+          ...input.clips.map((c) => ({
+            inlineData: { mimeType: c.mimeType, data: c.audioBase64 },
+          })),
         ]
       : [{ text: `${prompt}\n\nInput text:\n${input.text}` }];
 

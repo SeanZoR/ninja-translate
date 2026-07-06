@@ -45,7 +45,7 @@ export function playgroundRoutes(_ctx: AdminCtx) {
             },
           )
         : await translate(
-            { kind: 'voice', audioBase64: args.audioBase64, mimeType: args.mimeType },
+            { kind: 'voice', clips: [{ audioBase64: args.audioBase64, mimeType: args.mimeType }] },
             {
               targetLanguages: args.targetLanguages,
               polishLevel: args.polishLevel,

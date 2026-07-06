@@ -9,6 +9,34 @@ import { config } from '../config.js';
 const budgetAlerted = new Map<string, string>(); // group_jid → YYYY-MM
 const dmReplied = new Map<string, number>();    // user_jid → epoch ms of last DM reply
 
+// Voice notes forwarded as a batch arrive as separate WA messages with no
+// "these belong together" marker. We debounce per (group, sender): each clip
+// resets a short window, and when it elapses the whole batch goes through ONE
+// Gemini call → one combined transcript + translation reply.
+const VOICE_BATCH_WINDOW_MS = 2000;
+// Flush early past this many clips — bounds the inline audio payload (Gemini
+// caps requests around 20MB) and the worst-case merge size.
+const VOICE_BATCH_MAX_CLIPS = 10;
+
+type BufferedClip = {
+  msg: WAMessage;
+  audioBase64: string;
+  mimeType: string;
+  audioSeconds: number | null;
+  waMessageId: string;
+};
+
+type PendingBatch = {
+  sock: WASocket;
+  group: Group;
+  senderJid: string | null;
+  senderName: string | null;
+  clips: BufferedClip[];
+  timer: NodeJS.Timeout;
+};
+
+const voiceBatches = new Map<string, PendingBatch>(); // `${groupJid}|${senderJid}`
+
 const REACT_PROCESSING = '🌐';
 const REACT_TOO_LONG = '⏱️';
 const REACT_BUDGET = '💸';
@@ -39,6 +67,25 @@ function effectiveProcessingReaction(group: Group, speakerJid: string | null): b
 
 function publicUserBaseUrl(): string {
   return config.publicUserBaseUrl ?? `http://${config.adminHost}:${config.adminPort}`;
+}
+
+/**
+ * True when the group has hit its monthly budget cap. Reacts 💸 on `msg` and
+ * fires a once-per-month admin alert.
+ */
+async function overBudget(sock: WASocket, msg: WAMessage, group: Group): Promise<boolean> {
+  const monthCents = repo.monthCostForGroup(group.jid);
+  if (monthCents < group.monthlyBudgetCents) return false;
+  await react(sock, msg, REACT_BUDGET);
+  const month = new Date().toISOString().slice(0, 7);
+  if (budgetAlerted.get(group.jid) !== month) {
+    budgetAlerted.set(group.jid, month);
+    void alert(
+      `Group "${group.label}" hit monthly budget cap ` +
+      `(${monthCents.toFixed(2)}¢ / ${group.monthlyBudgetCents}¢). Pausing translations until next month or cap raise.`,
+    );
+  }
+  return true;
 }
 
 type QuotedMessage = NonNullable<WAMessage['message']>;
@@ -100,19 +147,7 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   if (!group.enabled) return;
 
   // Budget guard: check this month's cost first.
-  const monthCents = repo.monthCostForGroup(remoteJid);
-  if (monthCents >= group.monthlyBudgetCents) {
-    await react(sock, msg, REACT_BUDGET);
-    const month = new Date().toISOString().slice(0, 7);
-    if (budgetAlerted.get(remoteJid) !== month) {
-      budgetAlerted.set(remoteJid, month);
-      void alert(
-        `Group "${group.label}" hit monthly budget cap ` +
-        `(${monthCents.toFixed(2)}¢ / ${group.monthlyBudgetCents}¢). Pausing translations until next month or cap raise.`,
-      );
-    }
-    return;
-  }
+  if (await overBudget(sock, msg, group)) return;
 
   const voice = messageContent.audioMessage;
   // Pull text from plain text messages AND from media captions (image/video/
@@ -244,27 +279,81 @@ async function handleVoice(
     fs.writeFileSync(audioPath(group.jid, meta.waMessageId), buffer);
   } catch { /* non-fatal */ }
 
-  const audioBase64 = buffer.toString('base64');
-  const mimeType = audio.mimetype ?? 'audio/ogg';
+  const clip: BufferedClip = {
+    msg,
+    audioBase64: buffer.toString('base64'),
+    mimeType: audio.mimetype ?? 'audio/ogg',
+    audioSeconds,
+    waMessageId: meta.waMessageId,
+  };
+
+  // No sender identity → no safe way to merge across messages; flush alone.
+  const key = `${group.jid}|${meta.senderJid ?? meta.waMessageId}`;
+
+  const existing = voiceBatches.get(key);
+  if (existing) {
+    clearTimeout(existing.timer);
+    existing.clips.push(clip);
+    if (existing.clips.length >= VOICE_BATCH_MAX_CLIPS) {
+      console.log(`[wa.voice] batch cap reached (${existing.clips.length} clips) → flushing key=${key}`);
+      void flushVoiceBatch(key);
+      return;
+    }
+    existing.timer = setTimeout(() => void flushVoiceBatch(key), VOICE_BATCH_WINDOW_MS);
+    console.log(`[wa.voice] buffered clip ${existing.clips.length} for key=${key}`);
+    return;
+  }
+
+  voiceBatches.set(key, {
+    sock,
+    group,
+    senderJid: meta.senderJid,
+    senderName: meta.senderName,
+    clips: [clip],
+    timer: setTimeout(() => void flushVoiceBatch(key), VOICE_BATCH_WINDOW_MS),
+  });
+}
+
+async function flushVoiceBatch(key: string): Promise<void> {
+  const batch = voiceBatches.get(key);
+  if (!batch) return;
+  // Remove BEFORE the async work so clips arriving mid-flush start a fresh batch.
+  voiceBatches.delete(key);
+  clearTimeout(batch.timer);
+
+  const { sock, group, clips } = batch;
+  const lastClip = clips[clips.length - 1]!;
+  if (clips.length > 1) {
+    console.log(`[wa.voice] flushing batch of ${clips.length} clips for key=${key}`);
+  }
+
+  // Re-check the budget: the pre-buffer check in handleMessage ran per clip,
+  // but the month's spend may have crossed the cap while we were buffering.
+  if (await overBudget(sock, lastClip.msg, group)) return;
 
   let result;
   try {
     result = await translate(
-      { kind: 'voice', audioBase64, mimeType },
-      effectiveOptions(group, meta.senderJid),
+      { kind: 'voice', clips: clips.map((c) => ({ audioBase64: c.audioBase64, mimeType: c.mimeType })) },
+      effectiveOptions(group, batch.senderJid),
     );
   } catch (err) {
     console.error('[gemini]', err);
-    await react(sock, msg, REACT_ERROR);
+    for (const c of clips) await react(sock, c.msg, REACT_ERROR);
     return;
   }
 
-  await persistAndReply(sock, msg, group, {
+  // One DB row + one reply per batch: quote the LAST clip, sum the durations.
+  const totalSeconds = clips.reduce<number | null>(
+    (sum, c) => (c.audioSeconds == null ? sum : (sum ?? 0) + c.audioSeconds),
+    null,
+  );
+  await persistAndReply(sock, lastClip.msg, group, {
     kind: 'voice',
-    audioSeconds,
-    senderJid: meta.senderJid,
-    senderName: meta.senderName,
-    waMessageId: meta.waMessageId,
+    audioSeconds: totalSeconds,
+    senderJid: batch.senderJid,
+    senderName: batch.senderName,
+    waMessageId: lastClip.waMessageId,
     result,
   });
 }
