@@ -15,6 +15,10 @@ ExecStart=/usr/bin/node --import tsx src/index.ts
 #   ExecStart=/usr/bin/doppler run --project <your-project> --config prd -- /usr/bin/node --import tsx src/index.ts
 Restart=always
 RestartSec=5
+# `pnpm`/`node` exit non-zero (255) on SIGTERM, so a clean `systemctl restart`
+# would otherwise be logged as `Failed with result 'exit-code'`. Treat the
+# SIGTERM exit paths as success so restarts/deploys don't show up as failures.
+SuccessExitStatus=143 255 SIGTERM
 StandardOutput=append:/var/log/ninja-translate.log
 StandardError=append:/var/log/ninja-translate.log
 
