@@ -131,13 +131,13 @@ ${labelled}
 The input is ${inputDescription}.${speakerHintsBlock}
 
 Steps:
-1. Identify the source language (must be one of the codes above).
+1. Identify the language actually spoken. It may be one of the codes above, or a DIFFERENT language not listed here - report whichever is truly spoken; never force it into the list.
 2. ${transcriptStep}
-3. Translate naturally into every OTHER language in the list, based on the transcript from step 2. Preserve tone and register. NO commentary, NO explanations, NO alternative phrasings, NO markdown.
+3. Translate naturally into every language in the list that is NOT the source language, based on the transcript from step 2. Preserve tone and register. NO commentary, NO explanations, NO alternative phrasings, NO markdown.
 
 Output EXACTLY this format and nothing else:
 
-LANG=<source iso code>
+LANG=<source iso-639-1 code, e.g. en/th/he/ja - whatever was actually spoken>
 SOURCE=<source text on a single line; replace any internal newlines with spaces>
 [<code>]=<translation on a single line>
 [<code>]=<translation on a single line>
@@ -145,12 +145,10 @@ SOURCE=<source text on a single line; replace any internal newlines with spaces>
 
 Rules:
 - One line per element. No blank lines. No leading/trailing whitespace on lines.
-- Use bare ISO-639-1 codes from the list above.
+- Use bare ISO-639-1 codes. The [<code>]= lines use codes from the list above; LANG may be any code.
 - "my" means Burmese, not Malay. If you output "my=", the value MUST be in Burmese script.
-- Do NOT include the source language as a [<code>]= line. Skip it.
-- If the input is silent, empty, or unintelligible, output exactly:
-UNINTELLIGIBLE
-(and nothing else)`;
+- Emit one [<code>]= line for every listed language except the source language. If the source language is NOT in the list, emit a line for ALL listed languages.
+- Only output UNINTELLIGIBLE (and nothing else) when the audio is genuinely silent, noise, or contains no discernible speech in any language. A language not being in the list above is NOT a reason to output UNINTELLIGIBLE - transcribe and translate it.`;
 }
 
 type ParsedResponse = {
@@ -175,8 +173,10 @@ function parseResponse(raw: string, opts: TranslateOptions): ParsedResponse {
     if (!line) continue;
 
     if (line.startsWith('LANG=')) {
+      // Accept ANY ISO-639 code as the source - the speaker may use a language
+      // outside the group's target list, and we still want to transcribe it.
       const v = line.slice('LANG='.length).trim().toLowerCase();
-      if (allowed.has(v)) sourceLang = v;
+      if (/^[a-z]{2,3}$/.test(v)) sourceLang = v;
       continue;
     }
     if (line.startsWith('SOURCE=')) {
