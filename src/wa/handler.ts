@@ -425,7 +425,9 @@ async function persistAndReply(
   const reply = formatReply(group, result, args.kind);
   if (!reply) return;
 
-  await sock.sendMessage(group.jid, { text: reply }, { quoted: msg });
+  // linkPreview:null skips baileys' URL-preview generation (which needs the
+  // optional link-preview-js peer dep we don't install) - no card, no warning.
+  await sock.sendMessage(group.jid, { text: reply, linkPreview: null }, { quoted: msg });
 }
 
 function formatReply(
@@ -477,7 +479,7 @@ async function handleDirectMessage(sock: WASocket, userJid: string, _msg: WAMess
     `🥷 Your Ninja Translate settings — these follow you to every group:\n${url}\n\n` +
     `(link is private to you, valid for 30 days)`;
   try {
-    await sock.sendMessage(userJid, { text: body });
+    await sock.sendMessage(userJid, { text: body, linkPreview: null });
     console.log(`[wa.dm] settings link sent to ${userJid}`);
   } catch (err) {
     console.error('[wa.dm] sendMessage failed', err);
