@@ -35,6 +35,7 @@ for (const m of migrations) {
 
 // One-shot sweep at startup. Cheap (indexed on expires_at).
 db.exec(`DELETE FROM settings_tokens WHERE expires_at <= datetime('now')`);
+db.exec(`DELETE FROM group_settings_tokens WHERE expires_at <= datetime('now')`);
 
 // 30 days. Re-DMing the bot rotates the token if the prior one is expired,
 // otherwise the same row is returned (so a user-shared link keeps working).
@@ -89,6 +90,14 @@ function rowToUser(r: UserRow): User {
 
 export type SettingsTokenRow = {
   token: string;
+  user_jid: string;
+  expires_at: string;
+  created_at: string;
+};
+
+export type GroupSettingsTokenRow = {
+  token: string;
+  group_jid: string;
   user_jid: string;
   expires_at: string;
   created_at: string;
@@ -281,6 +290,21 @@ const stmts = {
   purgeExpiredTokens: db.prepare(
     `DELETE FROM settings_tokens WHERE expires_at <= datetime('now')`,
   ),
+
+  getActiveGroupToken: db.prepare<[string, string], GroupSettingsTokenRow>(
+    `SELECT * FROM group_settings_tokens WHERE group_jid = ? AND user_jid = ? AND expires_at > datetime('now')`,
+  ),
+  upsertGroupToken: db.prepare(`
+    INSERT INTO group_settings_tokens (token, group_jid, user_jid, expires_at)
+    VALUES (@token, @group_jid, @user_jid, @expires_at)
+    ON CONFLICT(group_jid, user_jid) DO UPDATE SET
+      token = excluded.token,
+      expires_at = excluded.expires_at,
+      created_at = datetime('now')
+  `),
+  getGroupTokenRow: db.prepare<[string], GroupSettingsTokenRow>(
+    `SELECT * FROM group_settings_tokens WHERE token = ? AND expires_at > datetime('now')`,
+  ),
 };
 
 export const repo = {
@@ -431,6 +455,26 @@ export const repo = {
   userJidForToken(token: string): string | null {
     const row = stmts.getTokenRow.get(token);
     return row ? row.user_jid : null;
+  },
+
+  /**
+   * Group-settings twin of getOrCreateSettingsToken. Scoped to (group, user):
+   * the same admin gets a stable link per group within the TTL, and a re-issue
+   * after expiry replaces the row (UNIQUE constraint), killing the old token.
+   */
+  getOrCreateGroupSettingsToken(groupJid: string, userJid: string): { token: string; expiresAt: string; created: boolean } {
+    const existing = stmts.getActiveGroupToken.get(groupJid, userJid);
+    if (existing) {
+      return { token: existing.token, expiresAt: existing.expires_at, created: false };
+    }
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + SETTINGS_TOKEN_TTL_MS).toISOString();
+    stmts.upsertGroupToken.run({ token, group_jid: groupJid, user_jid: userJid, expires_at: expiresAt });
+    return { token, expiresAt, created: true };
+  },
+  groupSettingsTokenInfo(token: string): { groupJid: string; userJid: string } | null {
+    const row = stmts.getGroupTokenRow.get(token);
+    return row ? { groupJid: row.group_jid, userJid: row.user_jid } : null;
   },
   purgeExpiredTokens(): number {
     return stmts.purgeExpiredTokens.run().changes;

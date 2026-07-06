@@ -102,3 +102,16 @@ CREATE TABLE IF NOT EXISTS settings_tokens (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_settings_tokens_expires ON settings_tokens(expires_at);
+
+-- Magic-link tokens for GROUP settings, issued to WhatsApp group admins.
+-- Scoped to (group, user) so a link only ever edits one group, and so we can
+-- re-verify that this specific user is still an admin on every API call.
+CREATE TABLE IF NOT EXISTS group_settings_tokens (
+  token       TEXT PRIMARY KEY,
+  group_jid   TEXT NOT NULL,
+  user_jid    TEXT NOT NULL,
+  expires_at  TEXT NOT NULL,                    -- RFC3339 / ISO-8601 UTC
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (group_jid, user_jid)
+);
+CREATE INDEX IF NOT EXISTS idx_group_settings_tokens_expires ON group_settings_tokens(expires_at);

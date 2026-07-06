@@ -15,6 +15,7 @@ import { usageRoutes } from './routes/usage.js';
 import { systemRoutes } from './routes/system.js';
 import { playgroundRoutes } from './routes/playground.js';
 import { userSettingsRoutes } from './routes/user-settings.js';
+import { groupSettingsRoutes } from './routes/group-settings.js';
 
 export type AdminCtx = {
   /** Returns the current Baileys socket. May change across reconnects. */
@@ -35,11 +36,12 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
     }),
   );
 
-  // CF Access gate, but skip for the public per-user settings endpoints.
-  // The token in the URL path is the auth — these are intentionally reachable
-  // without a CF Access cookie, served from a separate public hostname in prod.
+  // CF Access gate, but skip for the public per-user and per-group settings
+  // endpoints. The token in the URL path is the auth — these are intentionally
+  // reachable without a CF Access cookie, served from a separate public
+  // hostname in prod. (/api/g additionally re-verifies live WA adminship.)
   app.use('/api/*', async (c, next) => {
-    if (c.req.path.startsWith('/api/u/')) return next();
+    if (c.req.path.startsWith('/api/u/') || c.req.path.startsWith('/api/g/')) return next();
     return requireCfAccess(c, next);
   });
 
@@ -52,6 +54,7 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
   app.route('/api/system', systemRoutes(ctx));
   app.route('/api/playground', playgroundRoutes(ctx));
   app.route('/api/u', userSettingsRoutes());
+  app.route('/api/g', groupSettingsRoutes(ctx));
 
   // Public per-user settings page. Token in path is the auth. Renders the
   // same HTML for any token; the page reads location.pathname client-side and
@@ -71,6 +74,19 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
     }
   });
 
+  // Public per-group settings page for WhatsApp group admins. Same model as
+  // /u/:token — token in path, client-side fetch to /api/g/:token/settings.
+  const groupPagePath = path.join(webRoot, 'g.html');
+  app.get('/g/:token', (c) => {
+    try {
+      const html = fs.readFileSync(groupPagePath, 'utf8');
+      return c.html(html);
+    } catch (err) {
+      console.error('[api] failed to read g.html', err);
+      return c.text('settings page unavailable', 500);
+    }
+  });
+
   // Public-page static assets — always served, even in production, since the
   // public hostname doesn't go through CF Pages. Whitelist explicit files so
   // we don't accidentally expose the admin dashboard (index.html, app.js) on
@@ -81,6 +97,7 @@ export async function startAdminServer(ctx: AdminCtx): Promise<void> {
     '/styles.css': 'text/css; charset=utf-8',
     '/u.css': 'text/css; charset=utf-8',
     '/u.js': 'application/javascript; charset=utf-8',
+    '/g.js': 'application/javascript; charset=utf-8',
   };
   for (const [route, contentType] of Object.entries(PUBLIC_FILES)) {
     const filename = route.slice(1);

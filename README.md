@@ -33,6 +33,10 @@ Gemini 2.5 Flash for native-audio understanding in one round trip.
 - 👤 **Per-user overrides** — speakers DM the bot for a magic link to a
   personal settings page (polish, tone, language hint, etc.) that overrides
   the group config for their own messages
+- 👑 **Group self-service for WhatsApp admins** — mention the bot with the
+  word `language` in a group and, if you're a group admin, it DMs you a magic
+  link to that group's settings page (languages, voice/text toggles, polish).
+  Adminship is re-verified live on every API call
 - 💰 **Pre-flight cost guard** — skip oversize audio before paying for it
 - 📉 **Monthly budget cap per group** — soft pause when exceeded, resume on bump
 - 🔐 **Cloudflare Access-gated admin dashboard** — JWT verified server-side
@@ -153,10 +157,12 @@ API_BASE=https://api.translate.your-domain.com ./scripts/build-web.sh
 wrangler pages deploy web-dist --project-name=ninja-translate-dashboard
 ```
 
-### Per-user settings page (public hostname)
+### Per-user & group settings pages (public hostname)
 
-The per-user magic-link page (`/u/:token`) and its API (`/api/u/:token/me`)
-must be reachable WITHOUT CF Access — the token in the URL is the auth.
+The magic-link pages (`/u/:token` for personal settings, `/g/:token` for
+group-admin settings) and their APIs (`/api/u/...`, `/api/g/...`)
+must be reachable WITHOUT CF Access — the token in the URL is the auth
+(group pages additionally re-verify WhatsApp adminship server-side).
 Add a second CF Tunnel hostname pointing to the same `127.0.0.1:7878` Hono
 process, e.g. `u.translate.<your-domain>`, and **do not** include it in the
 CF Access app from the next section. Set `PUBLIC_USER_BASE_URL=https://u.translate.<your-domain>`

@@ -1,8 +1,9 @@
-import { downloadMediaMessage, type WAMessage, type WASocket } from '@whiskeysockets/baileys';
+import { downloadMediaMessage, type GroupMetadata, type WAMessage, type WASocket } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
 import { repo, openMode, type Group } from '../db/index.js';
 import { translate, flagFor, type TranslateOptions } from '../translator/gemini.js';
 import { audioPath } from './client.js';
+import { getGroupMetadataCached, isGroupAdmin } from './admin.js';
 import { alert } from '../alerts.js';
 import { config } from '../config.js';
 
@@ -43,6 +44,11 @@ const REACT_BUDGET = '💸';
 const REACT_ERROR = '⚠️';
 
 const DM_RATE_LIMIT_MS = 30_000;
+
+// "@bot language" (or "settings") from a group admin → DM them a magic link
+// to this group's settings page. Single memorable word, checked after mention
+// placeholders are stripped so it must be the entire message body.
+const SETTINGS_COMMAND_RE = /^(language|languages|settings?)$/i;
 
 /**
  * Merges per-user overrides onto the group config for the speaker. Group is the
@@ -146,13 +152,26 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   }
   if (!group.enabled) return;
 
-  // Budget guard: check this month's cost first.
-  if (await overBudget(sock, msg, group)) return;
-
   const voice = messageContent.audioMessage;
   // Pull text from plain text messages AND from media captions (image/video/
   // document). Media captions carry their own contextInfo for mentions.
   const textSource = textSourceFrom(messageContent);
+
+  const wasMentioned = textSource ? botWasMentioned(textSource, ctx) : false;
+  // Strip @<digits> mention placeholders so what's left is just the message
+  // body — used both for the settings command match and for translation.
+  const cleanText = textSource ? textSource.text.replace(/@\d{6,}\s*/g, '').trim() : '';
+
+  // Group-admin settings command. Sits before the budget guard and the
+  // textTranslateOnMention gate on purpose: admins should always be able to
+  // reach their settings page, even in a capped or mention-disabled group.
+  if (wasMentioned && SETTINGS_COMMAND_RE.test(cleanText)) {
+    await handleGroupSettingsCommand(sock, msg, group, senderJid);
+    return;
+  }
+
+  // Budget guard: check this month's cost first.
+  if (await overBudget(sock, msg, group)) return;
 
   if (voice && group.voiceTranslate) {
     // Per-user opt-out: speaker explicitly disabled voice translation for their
@@ -167,21 +186,10 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
   }
 
   if (textSource && group.textTranslateOnMention) {
-    const botJid = ctx.getBotJid();
-    const botLid = ctx.getBotLid?.() ?? null;
-    if (!botJid && !botLid) return;
-    const mentions = textSource.contextInfo?.mentionedJid ?? [];
-    const wasMentioned = mentions.some((m) =>
-      (botJid && m === botJid) || (botLid && m === botLid),
-    );
     if (!wasMentioned) {
-      console.log(`[wa.recv] text ignored (no mention; source=${textSource.source} mentions=${JSON.stringify(mentions)} bot=${botJid}/${botLid})`);
+      console.log(`[wa.recv] text ignored (no mention; source=${textSource.source} mentions=${JSON.stringify(textSource.contextInfo?.mentionedJid ?? [])})`);
       return;
     }
-    // Strip @<digits> mention placeholders so Gemini doesn't echo them back
-    // verbatim in the translation. Removes both @<bare-digits> and any nearby
-    // whitespace/punctuation so the cleaned text reads naturally.
-    const cleanText = textSource.text.replace(/@\d{6,}\s*/g, '').trim();
     let translateText = cleanText;
     if (!translateText) {
       // Mention-only reply: translate the quoted message instead.
@@ -204,6 +212,13 @@ type TextSource = {
   source: 'conversation' | 'extendedText' | 'imageCaption' | 'videoCaption' | 'documentCaption';
   contextInfo: { mentionedJid?: string[] | null; quotedMessage?: QuotedMessage | null } | null | undefined;
 };
+
+function botWasMentioned(textSource: TextSource, ctx: HandlerCtx): boolean {
+  const botJid = ctx.getBotJid();
+  const botLid = ctx.getBotLid?.() ?? null;
+  const mentions = textSource.contextInfo?.mentionedJid ?? [];
+  return mentions.some((m) => (botJid && m === botJid) || (botLid && m === botLid));
+}
 
 /**
  * Surfaces translatable text from any message type that can carry one — plain
@@ -459,7 +474,76 @@ function formatReply(
 }
 
 /**
- * Any DM to the bot triggers an auto-reply with the user's magic settings link.
+ * "@bot language" inside a group. WhatsApp adminship is the whole permission
+ * model: admins get a group-scoped magic link DM'd to them, everyone else
+ * gets a 🔒 react. The link edits only this group, and the API re-verifies
+ * adminship on every call, so a demoted admin's link stops working.
+ */
+async function handleGroupSettingsCommand(
+  sock: WASocket,
+  msg: WAMessage,
+  group: Group,
+  senderJid: string | null,
+): Promise<void> {
+  if (!senderJid) return;
+
+  let meta: GroupMetadata | null = null;
+  try {
+    meta = await getGroupMetadataCached(sock, group.jid);
+  } catch (err) {
+    console.error('[wa.cmd] groupMetadata failed', err);
+  }
+  if (!meta || !isGroupAdmin(meta, senderJid)) {
+    console.log(`[wa.cmd] settings denied (not admin) sender=${senderJid} group=${group.jid}`);
+    await react(sock, msg, '🔒');
+    return;
+  }
+
+  const { token } = repo.getOrCreateGroupSettingsToken(group.jid, senderJid);
+  const url = `${publicUserBaseUrl()}/g/${token}`;
+  const name = meta.subject || group.label;
+  try {
+    await sock.sendMessage(senderJid, {
+      text:
+        `🥷 Group settings for *${name}*:\n${url}\n\n` +
+        `(admin-only link — anyone with it can change this group's settings. Valid for 30 days.)`,
+      linkPreview: null,
+    });
+    await react(sock, msg, '📬');
+    console.log(`[wa.cmd] group settings link sent to ${senderJid} for ${group.jid}`);
+  } catch (err) {
+    // DM can fail if the admin's privacy settings block messages from
+    // non-contacts. The 🔒-free react tells them *something* happened.
+    console.error('[wa.cmd] failed to DM group settings link', err);
+    await react(sock, msg, REACT_ERROR);
+  }
+}
+
+/**
+ * Enabled groups where `userJid` is a WhatsApp admin. Metadata fetches are
+ * cached and failures are skipped — worst case a group is missing from the
+ * DM list, and the in-group "@bot language" path still covers it.
+ */
+async function groupsWhereAdmin(
+  sock: WASocket,
+  userJid: string,
+): Promise<{ group: Group; subject: string }[]> {
+  const groups = repo.listGroups().filter((g) => g.enabled);
+  const metas = await Promise.allSettled(groups.map((g) => getGroupMetadataCached(sock, g.jid)));
+  const out: { group: Group; subject: string }[] = [];
+  groups.forEach((group, i) => {
+    const r = metas[i];
+    if (!r || r.status !== 'fulfilled') return;
+    if (isGroupAdmin(r.value, userJid)) {
+      out.push({ group, subject: r.value.subject || group.label });
+    }
+  });
+  return out;
+}
+
+/**
+ * Any DM to the bot triggers an auto-reply with the user's magic settings link
+ * — plus group-settings links for every group where they're a WhatsApp admin.
  * Idempotent: returns the same active token within its TTL, so the same URL
  * keeps working across multiple DMs. Rate-limited per-jid in-process to avoid
  * spamming when a user fires several messages in a row.
@@ -475,12 +559,24 @@ async function handleDirectMessage(sock: WASocket, userJid: string, _msg: WAMess
 
   const { token } = repo.getOrCreateSettingsToken(userJid);
   const url = `${publicUserBaseUrl()}/u/${token}`;
-  const body =
+  let body =
     `🥷 Your Ninja Translate settings — these follow you to every group:\n${url}\n\n` +
     `(link is private to you, valid for 30 days)`;
+
+  const adminOf = await groupsWhereAdmin(sock, userJid).catch(() => []);
+  if (adminOf.length > 0) {
+    const lines = adminOf.map(({ group, subject }) => {
+      const { token: gToken } = repo.getOrCreateGroupSettingsToken(group.jid, userJid);
+      return `• ${subject}\n  ${publicUserBaseUrl()}/g/${gToken}`;
+    });
+    body +=
+      `\n\n👑 You're an admin — group settings you can manage:\n${lines.join('\n')}\n\n` +
+      `Tip: in any group, mention me with the word "language" to get that group's link.`;
+  }
+
   try {
     await sock.sendMessage(userJid, { text: body, linkPreview: null });
-    console.log(`[wa.dm] settings link sent to ${userJid}`);
+    console.log(`[wa.dm] settings link sent to ${userJid} (adminOf=${adminOf.length})`);
   } catch (err) {
     console.error('[wa.dm] sendMessage failed', err);
   }

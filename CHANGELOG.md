@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Group self-service settings for WhatsApp group admins: mention the bot
+  with the word `language` (or `settings`) in a group to get a magic link
+  (`/g/:token`) to that group's settings page — target languages,
+  voice/text toggles, polish level, reply formatting. Only WhatsApp
+  admins/superadmins of the group can request a link, and adminship is
+  re-verified against live group metadata on every API call, so demoted
+  admins lose access within a minute. DM auto-replies now also list
+  group-settings links for every group where the sender is an admin.
+  Cost/safety controls (enabled, budget, max audio length) remain
+  dashboard-only.
+
 - Open-source repository scaffolding: `LICENSE` (MIT), `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, `ROADMAP.md`, `ARCHITECTURE.md`,
   GitHub issue/PR templates, Dependabot, and CI workflow.

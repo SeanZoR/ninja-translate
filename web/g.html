@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Group settings — Ninja Translate</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F2F7" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- API_BASE_PLACEHOLDER: replaced by deploy step. Empty = same-origin. -->
+  <meta name="api-base" content="" />
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="/u.css" />
+</head>
+<body x-data="groupPage()" x-init="init()">
+
+  <main class="page">
+
+    <!-- Brand chip + page title -->
+    <header class="hero">
+      <div class="brand-row">
+        <span class="brand">🥷 Ninja Translate</span>
+        <span class="status-pill" :class="state" x-show="state !== 'loading'" x-text="state === 'ready' ? 'Live' : 'Expired'"></span>
+      </div>
+      <h1 class="title">Group settings</h1>
+      <p class="subtitle" x-text="groupName ? groupName : 'These apply to everyone in the group.'"></p>
+    </header>
+
+    <!-- Loading -->
+    <div x-show="state === 'loading'" class="empty-state">Loading…</div>
+
+    <!-- Expired / invalid -->
+    <section x-show="state === 'expired'">
+      <div class="card error-card">
+        <p class="error-icon">🔗</p>
+        <h2>This link isn't working</h2>
+        <p x-text="expiredReason"></p>
+      </div>
+    </section>
+
+    <!-- READY -->
+    <template x-if="state === 'ready'">
+      <div>
+
+        <!-- ════════ LANGUAGES (PRIMARY) ════════ -->
+        <p class="section-header">Languages</p>
+        <div class="card">
+          <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
+            <div class="row row-selectable" @click="toggleLang(lang.code)">
+              <span class="row-label" x-text="lang.flag + ' ' + lang.name"></span>
+              <span class="row-check" x-show="f.targetLanguages.includes(lang.code)">✓</span>
+            </div>
+          </template>
+        </div>
+        <p class="section-footer">Every message gets translated into each selected language (except the one it was spoken in). Pick at least one.</p>
+
+        <!-- ════════ WHAT GETS TRANSLATED ════════ -->
+        <p class="section-header">What gets translated</p>
+        <div class="card">
+          <div class="row">
+            <span class="row-label">Voice notes</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.voiceTranslate" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span class="row-label">Text when someone @mentions the bot</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.textTranslateOnMention" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- ════════ POLISH ════════ -->
+        <p class="section-header">Polish level</p>
+        <div class="card">
+          <template x-for="opt in POLISH_OPTIONS" :key="opt.value">
+            <div class="row row-selectable" @click="f.polishLevel = opt.value">
+              <div class="row-stack">
+                <span class="row-label" x-text="opt.title"></span>
+                <span class="row-sub" x-text="opt.sub"></span>
+              </div>
+              <span class="row-check" x-show="f.polishLevel === opt.value">✓</span>
+            </div>
+          </template>
+        </div>
+        <p class="section-footer">Voice only — how much transcripts get cleaned up before translating. People can pick their own level in their personal settings.</p>
+
+        <!-- ════════ REPLY ════════ -->
+        <p class="section-header">Reply formatting</p>
+        <div class="card">
+          <div class="row">
+            <span class="row-label">Show source label</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.showSourceLabel" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span class="row-label">Show 🌐 while translating</span>
+            <label class="toggle">
+              <input type="checkbox" x-model="f.showProcessingReaction" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <p class="section-footer">Only WhatsApp admins of this group can change these settings.</p>
+
+      </div>
+    </template>
+
+  </main>
+
+  <!-- Fixed bottom save bar -->
+  <div class="action-bar" :class="{ visible: state === 'ready' }">
+    <p class="save-status" :class="{ success: !!savedAt && !error, error: !!error }"
+       x-text="error ? error : (savedAt ? ('Saved · ' + savedAt) : 'Changes apply to the whole group')"></p>
+    <button type="button" class="btn-primary" :disabled="busy || f.targetLanguages.length === 0" @click="save()">
+      <span x-show="!busy">Save</span>
+      <span x-show="busy">Saving…</span>
+    </button>
+  </div>
+
+  <script src="/g.js"></script>
+</body>
+</html>
