@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import pino from 'pino';
 import { config } from '../config.js';
+import { alert } from '../alerts.js';
 
 const logger = pino({ level: 'warn' });
 
@@ -57,6 +58,12 @@ export async function startWAClient(
   let botJid: string | null = stripDeviceSuffix(config.botJid);
   let botLid: string | null = null;
   let stopped = false;
+
+  // Health alerting: count consecutive failed reconnects so a sustained outage
+  // triggers exactly one alert, and the following successful open reports recovery.
+  const OUTAGE_ALERT_AFTER = 5;
+  let reconnectFailures = 0;
+  let outageAlerted = false;
 
   // Run forever in the background, replacing the socket on each disconnect.
   void (async () => {
@@ -108,6 +115,13 @@ export async function startWAClient(
               botLid = stripDeviceSuffix(rawLid);
               if (botJid) {
                 console.log(`[wa] connected as ${botJid} (lid=${botLid ?? 'none'})`);
+                // Only ping recovery if we'd previously alerted about a sustained
+                // outage — avoids spam on routine transient reconnects.
+                if (outageAlerted) {
+                  void alert(`✅ WhatsApp reconnected as ${botJid} — bot is back online.`);
+                }
+                reconnectFailures = 0;
+                outageAlerted = false;
                 opts.onConnected?.(botJid);
               }
             }
@@ -116,6 +130,27 @@ export async function startWAClient(
               const code: number | undefined = err?.output?.statusCode ?? err?.statusCode;
               const shouldReconnect = code !== DisconnectReason.loggedOut;
               console.error(`[wa] disconnected (code ${code}). reconnect=${shouldReconnect}`);
+              if (!shouldReconnect) {
+                // Logged out (code 401): Baileys will NOT reconnect. The bot is
+                // dead until someone re-pairs a fresh QR. This is the failure
+                // that can otherwise go unnoticed for weeks — alert loudly.
+                void alert(
+                  `⚠️ WhatsApp session LOGGED OUT (code ${code}). Bot is DOWN and needs a QR re-pair. ` +
+                    `On the VPS: stop the service, clear wa-session, run the QR login, restart.`,
+                );
+              } else {
+                // Recoverable drop. Count consecutive failures; if the bot can't
+                // get back for a sustained stretch, alert once (and remember, so
+                // the next successful open reports recovery).
+                reconnectFailures++;
+                if (reconnectFailures === OUTAGE_ALERT_AFTER && !outageAlerted) {
+                  outageAlerted = true;
+                  void alert(
+                    `⚠️ WhatsApp has failed to reconnect ${reconnectFailures} times ` +
+                      `(last code ${code}). Bot may be offline — check the VPS.`,
+                  );
+                }
+              }
               resolve({ code, shouldReconnect });
             }
           });
