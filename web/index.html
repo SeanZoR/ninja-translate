@@ -348,6 +348,21 @@
             <label class="row"><input type="checkbox" x-model="current.enabled" /> Enabled</label>
             <label class="row"><input type="checkbox" x-model="current.voiceTranslate" /> Translate voice</label>
             <label class="row"><input type="checkbox" x-model="current.textTranslateOnMention" /> Translate text on @mention</label>
+            <div class="lang-picker-wrap">
+              <span class="lang-picker-label">Auto-translate without @mention <small>(text in these scripts translates on its own)</small></span>
+              <div class="lang-picker">
+                <template x-for="lang in AUTO_TRANSLATE_LANGUAGES" :key="'auto-' + lang.code">
+                  <button type="button"
+                    class="lang-pill"
+                    :class="{selected: (current.autoTranslateLangs || []).includes(lang.code)}"
+                    @click="toggleLang(current.autoTranslateLangs, lang.code)">
+                    <span x-text="lang.flag"></span>
+                    <span x-text="lang.name"></span>
+                    <span class="lang-pill-code" x-text="lang.code"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
             <label>Polish level <small>(voice only - cleans up the transcript before translating)</small>
               <select x-model.number="current.polishLevel">
                 <option value="0">0 - None (verbatim)</option>

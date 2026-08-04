@@ -43,6 +43,7 @@ export function inboxRoutes(ctx: AdminCtx) {
       enabled: true,
       voiceTranslate: true,
       textTranslateOnMention: true,
+      autoTranslateLangs: [],
       polishLevel: args.polishLevel ?? 2,
       showSourceLabel: args.showSourceLabel ?? true,
       showProcessingReaction: args.showProcessingReaction ?? false,

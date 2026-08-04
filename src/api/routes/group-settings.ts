@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { repo } from '../../db/index.js';
 import { getGroupMetadataCached, isGroupAdmin } from '../../wa/admin.js';
+import { SCRIPT_CAPABLE_LANGS } from '../../wa/scripts.js';
 import type { AdminCtx } from '../index.js';
 
 // Closed list of language codes the rest of the system understands. Keep in
@@ -14,6 +15,8 @@ const patchSchema = z.object({
   targetLanguages: z.array(z.enum(LANG_CODES)).min(1).max(6).optional(),
   voiceTranslate: z.boolean().optional(),
   textTranslateOnMention: z.boolean().optional(),
+  // Only script-distinct languages can auto-trigger without a mention.
+  autoTranslateLangs: z.array(z.enum(SCRIPT_CAPABLE_LANGS as [string, ...string[]])).max(6).optional(),
   polishLevel: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
   showSourceLabel: z.boolean().optional(),
   showProcessingReaction: z.boolean().optional(),
@@ -60,6 +63,7 @@ export function groupSettingsRoutes(ctx: AdminCtx) {
         targetLanguages: g.targetLanguages,
         voiceTranslate: g.voiceTranslate,
         textTranslateOnMention: g.textTranslateOnMention,
+        autoTranslateLangs: g.autoTranslateLangs,
         polishLevel: g.polishLevel,
         showSourceLabel: g.showSourceLabel,
         showProcessingReaction: g.showProcessingReaction,
@@ -86,6 +90,7 @@ export function groupSettingsRoutes(ctx: AdminCtx) {
       targetLanguages: parsed.data.targetLanguages ? [...new Set(parsed.data.targetLanguages)] : g.targetLanguages,
       voiceTranslate: parsed.data.voiceTranslate ?? g.voiceTranslate,
       textTranslateOnMention: parsed.data.textTranslateOnMention ?? g.textTranslateOnMention,
+      autoTranslateLangs: parsed.data.autoTranslateLangs ? [...new Set(parsed.data.autoTranslateLangs)] : g.autoTranslateLangs,
       polishLevel: parsed.data.polishLevel ?? g.polishLevel,
       showSourceLabel: parsed.data.showSourceLabel ?? g.showSourceLabel,
       showProcessingReaction: parsed.data.showProcessingReaction ?? g.showProcessingReaction,
@@ -99,6 +104,7 @@ export function groupSettingsRoutes(ctx: AdminCtx) {
         targetLanguages: next.targetLanguages,
         voiceTranslate: next.voiceTranslate,
         textTranslateOnMention: next.textTranslateOnMention,
+        autoTranslateLangs: next.autoTranslateLangs,
         polishLevel: next.polishLevel,
         showSourceLabel: next.showSourceLabel,
         showProcessingReaction: next.showProcessingReaction,

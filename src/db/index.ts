@@ -23,6 +23,7 @@ const migrations: { sql: string; ignoreIfExists?: boolean }[] = [
   // column is already in place on prod, so changing the literal here only
   // affects fresh DBs (where it'll seed new rows at "medium").
   { sql: `ALTER TABLE groups ADD COLUMN polish_level INTEGER NOT NULL DEFAULT 2`, ignoreIfExists: true },
+  { sql: `ALTER TABLE groups ADD COLUMN auto_translate_langs TEXT NOT NULL DEFAULT '[]'`, ignoreIfExists: true },
 ];
 for (const m of migrations) {
   try {
@@ -110,6 +111,7 @@ export type GroupRow = {
   enabled: number;
   voice_translate: number;
   text_translate_on_mention: number;
+  auto_translate_langs: string;
   polish_level: number;
   show_source_label: number;
   show_processing_reaction: number;
@@ -130,6 +132,7 @@ export type Group = {
   enabled: boolean;
   voiceTranslate: boolean;
   textTranslateOnMention: boolean;
+  autoTranslateLangs: string[];
   polishLevel: number;
   showSourceLabel: boolean;
   showProcessingReaction: boolean;
@@ -151,6 +154,7 @@ function rowToGroup(r: GroupRow): Group {
     enabled: !!r.enabled,
     voiceTranslate: !!r.voice_translate,
     textTranslateOnMention: !!r.text_translate_on_mention,
+    autoTranslateLangs: JSON.parse(r.auto_translate_langs),
     polishLevel: r.polish_level,
     showSourceLabel: !!r.show_source_label,
     showProcessingReaction: !!r.show_processing_reaction,
@@ -170,17 +174,18 @@ const stmts = {
   listGroups: db.prepare<[], GroupRow>('SELECT * FROM groups ORDER BY last_translated_at DESC NULLS LAST, created_at DESC'),
   upsertGroup: db.prepare(`
     INSERT INTO groups (jid, label, target_languages, enabled, voice_translate, text_translate_on_mention,
-                        polish_level, show_source_label, show_processing_reaction, max_audio_seconds,
-                        monthly_budget_cents, created_by_ninja, auto_approved, invite_link, notes)
+                        auto_translate_langs, polish_level, show_source_label, show_processing_reaction,
+                        max_audio_seconds, monthly_budget_cents, created_by_ninja, auto_approved, invite_link, notes)
     VALUES (@jid, @label, @target_languages, @enabled, @voice_translate, @text_translate_on_mention,
-            @polish_level, @show_source_label, @show_processing_reaction, @max_audio_seconds,
-            @monthly_budget_cents, @created_by_ninja, @auto_approved, @invite_link, @notes)
+            @auto_translate_langs, @polish_level, @show_source_label, @show_processing_reaction,
+            @max_audio_seconds, @monthly_budget_cents, @created_by_ninja, @auto_approved, @invite_link, @notes)
     ON CONFLICT(jid) DO UPDATE SET
       label = excluded.label,
       target_languages = excluded.target_languages,
       enabled = excluded.enabled,
       voice_translate = excluded.voice_translate,
       text_translate_on_mention = excluded.text_translate_on_mention,
+      auto_translate_langs = excluded.auto_translate_langs,
       polish_level = excluded.polish_level,
       show_source_label = excluded.show_source_label,
       show_processing_reaction = excluded.show_processing_reaction,
@@ -323,6 +328,7 @@ export const repo = {
       enabled: g.enabled ? 1 : 0,
       voice_translate: g.voiceTranslate ? 1 : 0,
       text_translate_on_mention: g.textTranslateOnMention ? 1 : 0,
+      auto_translate_langs: JSON.stringify(g.autoTranslateLangs),
       polish_level: g.polishLevel,
       show_source_label: g.showSourceLabel ? 1 : 0,
       show_processing_reaction: g.showProcessingReaction ? 1 : 0,

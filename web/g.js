@@ -23,6 +23,12 @@ const AVAILABLE_LANGUAGES = [
   { code: 'de', name: 'German',     flag: '🇩🇪' },
 ];
 
+// Languages whose script is distinct enough to auto-detect without a mention.
+// Mirror src/wa/scripts.ts SCRIPT_PATTERNS.
+const AUTO_TRANSLATE_LANGUAGES = AVAILABLE_LANGUAGES.filter((l) =>
+  ['th', 'he', 'ru', 'zh', 'my'].includes(l.code)
+);
+
 const POLISH_OPTIONS = [
   { value: 0, title: 'Verbatim',         sub: 'Keep ums and false starts as spoken.' },
   { value: 1, title: 'Light cleanup',    sub: 'Drop obvious filler sounds.' },
@@ -38,6 +44,7 @@ function tokenFromUrl() {
 function groupPage() {
   return {
     AVAILABLE_LANGUAGES,
+    AUTO_TRANSLATE_LANGUAGES,
     POLISH_OPTIONS,
 
     state: 'loading',                 // 'loading' | 'ready' | 'expired'
@@ -53,6 +60,7 @@ function groupPage() {
       targetLanguages: [],
       voiceTranslate: true,
       textTranslateOnMention: true,
+      autoTranslateLangs: [],
       polishLevel: 2,
       showSourceLabel: true,
       showProcessingReaction: false,
@@ -89,6 +97,7 @@ function groupPage() {
       this.f.targetLanguages        = Array.isArray(s.targetLanguages) ? [...s.targetLanguages] : [];
       this.f.voiceTranslate         = s.voiceTranslate         ?? true;
       this.f.textTranslateOnMention = s.textTranslateOnMention ?? true;
+      this.f.autoTranslateLangs     = Array.isArray(s.autoTranslateLangs) ? [...s.autoTranslateLangs] : [];
       this.f.polishLevel            = s.polishLevel            ?? 2;
       this.f.showSourceLabel        = s.showSourceLabel        ?? true;
       this.f.showProcessingReaction = s.showProcessingReaction ?? false;
@@ -98,6 +107,12 @@ function groupPage() {
       const i = this.f.targetLanguages.indexOf(code);
       if (i >= 0) this.f.targetLanguages.splice(i, 1);
       else this.f.targetLanguages.push(code);
+    },
+
+    toggleAutoLang(code) {
+      const i = this.f.autoTranslateLangs.indexOf(code);
+      if (i >= 0) this.f.autoTranslateLangs.splice(i, 1);
+      else this.f.autoTranslateLangs.push(code);
     },
 
     async save() {
@@ -116,6 +131,7 @@ function groupPage() {
             targetLanguages:        this.f.targetLanguages,
             voiceTranslate:         !!this.f.voiceTranslate,
             textTranslateOnMention: !!this.f.textTranslateOnMention,
+            autoTranslateLangs:     this.f.autoTranslateLangs,
             polishLevel:            this.f.polishLevel,
             showSourceLabel:        !!this.f.showSourceLabel,
             showProcessingReaction: !!this.f.showProcessingReaction,

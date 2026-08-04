@@ -4,6 +4,7 @@ import { repo, openMode, type Group } from '../db/index.js';
 import { translate, flagFor, type TranslateOptions } from '../translator/gemini.js';
 import { audioPath } from './client.js';
 import { getGroupMetadataCached, isGroupAdmin } from './admin.js';
+import { matchesScript } from './scripts.js';
 import { alert } from '../alerts.js';
 import { config } from '../config.js';
 
@@ -185,10 +186,17 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
     return;
   }
 
-  if (textSource && group.textTranslateOnMention) {
-    if (!wasMentioned) {
+  // Auto-trigger: text written in a script the group opted into (e.g. Thai)
+  // translates without a mention — for people who forget to @ the bot.
+  const autoTriggered = !!cleanText && matchesScript(cleanText, group.autoTranslateLangs);
+
+  if (textSource && (group.textTranslateOnMention || autoTriggered)) {
+    if (!wasMentioned && !autoTriggered) {
       console.log(`[wa.recv] text ignored (no mention; source=${textSource.source} mentions=${JSON.stringify(textSource.contextInfo?.mentionedJid ?? [])})`);
       return;
+    }
+    if (!wasMentioned && autoTriggered) {
+      console.log(`[wa.recv] text auto-triggered (script match; langs=${JSON.stringify(group.autoTranslateLangs)})`);
     }
     let translateText = cleanText;
     if (!translateText) {
@@ -598,6 +606,7 @@ async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Grou
     enabled: true,
     voiceTranslate: true,
     textTranslateOnMention: true,
+    autoTranslateLangs: [],
     polishLevel: 2,
     showSourceLabel: true,
     showProcessingReaction: false,
