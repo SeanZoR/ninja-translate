@@ -5,6 +5,7 @@ import {
   useMultiFileAuthState,
   type WASocket,
   type ConnectionState,
+  type GroupMetadata,
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import fs from 'node:fs';
@@ -40,6 +41,13 @@ export type WAClientOptions = {
   /** When true, the client exits the run-loop after first successful connection
    *  and one disconnect (used by the QR pairing script so it doesn't infinite-reconnect). */
   exitOnFirstClose?: boolean;
+  /**
+   * Fired when the bot is added to a group (WhatsApp pushes the group's full
+   * metadata as a `create` notification the moment we join, before anyone
+   * writes anything). Lets us register the group immediately instead of
+   * waiting for the first message.
+   */
+  onGroupJoin?: (sock: WASocket, meta: GroupMetadata) => Promise<void>;
 };
 
 /**
@@ -92,6 +100,20 @@ export async function startWAClient(
               await onMessage(sock, m);
             } catch (err) {
               console.error('[handler error]', err);
+            }
+          }
+        });
+      }
+
+      if (opts.onGroupJoin) {
+        const onGroupJoin = opts.onGroupJoin;
+        sock.ev.on('groups.upsert', async (metas: GroupMetadata[]) => {
+          for (const meta of metas) {
+            if (!meta?.id?.endsWith('@g.us')) continue;
+            try {
+              await onGroupJoin(sock, meta);
+            } catch (err) {
+              console.error('[group-join error]', err);
             }
           }
         });
@@ -160,6 +182,7 @@ export async function startWAClient(
       // Tear down old listeners cleanly so the next iteration starts fresh.
       try { sock.ev.removeAllListeners('connection.update'); } catch { /* ignore */ }
       try { sock.ev.removeAllListeners('messages.upsert'); } catch { /* ignore */ }
+      try { sock.ev.removeAllListeners('groups.upsert'); } catch { /* ignore */ }
       try { sock.ev.removeAllListeners('creds.update'); } catch { /* ignore */ }
       try { sock.end(undefined as any); } catch { /* ignore */ }
       currentSock = null;

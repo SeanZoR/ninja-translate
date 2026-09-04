@@ -1,5 +1,5 @@
 import { startWAClient, type WAClient } from './wa/client.js';
-import { handleMessage } from './wa/handler.js';
+import { handleMessage, handleGroupJoin } from './wa/handler.js';
 import { startAdminServer } from './api/index.js';
 
 const ADMIN_ONLY = process.env.NINJA_ADMIN_ONLY === '1';
@@ -15,6 +15,7 @@ async function main() {
         onConnected: (jid) => {
           console.log(`[main] bot online as ${jid}`);
         },
+        onGroupJoin: handleGroupJoin,
       },
       async (sock, msg) => {
         await handleMessage(sock, msg, {

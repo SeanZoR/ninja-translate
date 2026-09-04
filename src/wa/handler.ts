@@ -601,10 +601,14 @@ async function handleDirectMessage(sock: WASocket, userJid: string, _msg: WAMess
   }
 }
 
-async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Group> {
+async function autoApproveForOpenMode(
+  sock: WASocket,
+  jid: string,
+  knownMeta?: GroupMetadata,
+): Promise<Group> {
   let label = `(open mode) ${jid}`;
   try {
-    const meta = await sock.groupMetadata(jid);
+    const meta = knownMeta ?? (await sock.groupMetadata(jid));
     if (meta?.subject) label = `(open mode) ${meta.subject}`;
   } catch {
     /* metadata may not be available yet; fine */
@@ -633,6 +637,42 @@ async function autoApproveForOpenMode(sock: WASocket, jid: string): Promise<Grou
   repo.upsertGroup(g);
   console.log(`[open-mode] auto-approved ${jid} as "${label}" with langs ${langs.join(',')}`);
   return g;
+}
+
+/**
+ * Bot was just added to a group. WhatsApp hands us the full metadata at that
+ * moment, so register the group right away — pending inbox (or open-mode
+ * auto-approve) — instead of waiting for someone to write the first message.
+ * Lets Sean configure a group's languages before it ever sees traffic.
+ */
+export async function handleGroupJoin(sock: WASocket, meta: GroupMetadata): Promise<void> {
+  const jid = meta.id;
+  const inviter = (meta as { author?: string; authorPn?: string });
+  const inviterJid = inviter.authorPn ?? inviter.author ?? meta.owner ?? null;
+  console.log(`[wa.join] added to ${jid} subject="${meta.subject ?? ''}" by=${inviterJid ?? '?'} members=${meta.participants?.length ?? '?'}`);
+
+  if (repo.getGroup(jid)) return; // already configured (re-add or duplicate event)
+  if (repo.isRejected(jid)) {
+    console.log(`[wa.join] ${jid} was rejected before; ignoring`);
+    return;
+  }
+  if (openMode.isEnabled()) {
+    await autoApproveForOpenMode(sock, jid, meta);
+    return;
+  }
+
+  const existing = repo.getPending(jid);
+  repo.upsertPending({
+    jid,
+    subject: meta.subject ?? null,
+    participants: meta.participants?.map((p) => p.id) ?? null,
+    inviterJid,
+    inviterName: null,
+    sampleMessages: existing?.sample_messages ? JSON.parse(existing.sample_messages) : [],
+  });
+  if (!existing) {
+    void alert(`📥 Added to group "${meta.subject ?? jid}" — waiting in the inbox for approval.`);
+  }
 }
 
 async function trackPending(
