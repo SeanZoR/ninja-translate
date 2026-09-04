@@ -39,4 +39,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Repo uses pnpm but the runner has no pnpm; wrangler-action only
+          # needs a package manager to install wrangler itself.
+          packageManager: npm
           command: pages deploy web-dist --project-name=ninja-translate-dashboard --branch=main
