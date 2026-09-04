@@ -163,6 +163,27 @@ legend { color: var(--muted); padding: 0 6px; }
 .lang-pill.selected .lang-pill-code {
   color: var(--accent);
 }
+/* Merged picker: include pill + per-language "auto" flag. */
+.lang-item { display: inline-flex; align-items: stretch; }
+.lang-item.selected .lang-pill { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.lang-auto {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  margin-left: -1px;
+  border: 1px solid var(--accent);
+  border-radius: 0 999px 999px 0;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.lang-auto:hover { color: var(--text); }
+.lang-auto.on { background: var(--accent); color: #0b1a14; font-weight: 600; }
 
 .danger-zone {
   margin-top: 32px;

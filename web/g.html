@@ -48,11 +48,16 @@
           <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
             <div class="row row-selectable" @click="toggleLang(lang.code)">
               <span class="row-label" x-text="lang.flag + ' ' + lang.name"></span>
+              <button type="button" class="auto-chip"
+                      x-show="f.targetLanguages.includes(lang.code)"
+                      :class="{ on: f.autoTranslateLangs.includes(lang.code) }"
+                      :aria-pressed="f.autoTranslateLangs.includes(lang.code)"
+                      @click.stop="toggleAutoLang(lang.code)">Auto</button>
               <span class="row-check" x-show="f.targetLanguages.includes(lang.code)">✓</span>
             </div>
           </template>
         </div>
-        <p class="section-footer">Every message gets translated into each selected language (except the one it was spoken in). Pick at least one.</p>
+        <p class="section-footer">Tap a language to add it to the group. Every message gets translated into each selected language (except the one it was written in). Switch on <strong>Auto</strong> to translate messages written in that language without anyone @mentioning the bot.</p>
 
         <!-- ════════ WHAT GETS TRANSLATED ════════ -->
         <p class="section-header">What gets translated</p>
@@ -72,18 +77,6 @@
             </label>
           </div>
         </div>
-
-        <!-- ════════ AUTO-TRANSLATE (NO MENTION) ════════ -->
-        <p class="section-header">Translate without @mention</p>
-        <div class="card">
-          <template x-for="lang in AUTO_TRANSLATE_LANGUAGES" :key="lang.code">
-            <div class="row row-selectable" @click="toggleAutoLang(lang.code)">
-              <span class="row-label" x-text="lang.flag + ' ' + lang.name"></span>
-              <span class="row-check" x-show="f.autoTranslateLangs.includes(lang.code)">✓</span>
-            </div>
-          </template>
-        </div>
-        <p class="section-footer">Messages written in these languages get translated automatically — no need to @mention the bot.</p>
 
         <!-- ════════ POLISH ════════ -->
         <p class="section-header">Polish level</p>

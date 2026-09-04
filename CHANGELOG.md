@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Auto-translate without `@mention` now works for every supported language,
+  not just script-distinct ones. Latin-script text (en, es, fr, de, ms, tl,
+  id) is sent to Gemini on a script match and the reply is dropped if the
+  detected source language isn't on the group's auto list. The group
+  settings page and the admin dashboard show one merged language list:
+  tap to include a language, flip its **Auto** flag to translate it
+  without a mention. Auto flags are always a subset of the group's
+  languages (enforced on save). The admin Inbox approve form gained the
+  same picker plus voice/text toggles.
 - Group self-service settings for WhatsApp group admins: mention the bot
   with the word `language` (or `settings`) in a group to get a magic link
   (`/g/:token`) to that group's settings page — target languages,

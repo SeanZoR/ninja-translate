@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { repo } from '../../db/index.js';
 import { getGroupMetadataCached, isGroupAdmin } from '../../wa/admin.js';
-import { SCRIPT_CAPABLE_LANGS } from '../../wa/scripts.js';
 import type { AdminCtx } from '../index.js';
 
 // Closed list of language codes the rest of the system understands. Keep in
@@ -15,8 +14,9 @@ const patchSchema = z.object({
   targetLanguages: z.array(z.enum(LANG_CODES)).min(1).max(6).optional(),
   voiceTranslate: z.boolean().optional(),
   textTranslateOnMention: z.boolean().optional(),
-  // Only script-distinct languages can auto-trigger without a mention.
-  autoTranslateLangs: z.array(z.enum(SCRIPT_CAPABLE_LANGS as [string, ...string[]])).max(6).optional(),
+  // Any target language may auto-trigger without a mention; the server
+  // narrows it to the group's target languages on save.
+  autoTranslateLangs: z.array(z.enum(LANG_CODES)).max(LANG_CODES.length).optional(),
   polishLevel: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
   showSourceLabel: z.boolean().optional(),
   showProcessingReaction: z.boolean().optional(),
@@ -85,12 +85,16 @@ export function groupSettingsRoutes(ctx: AdminCtx) {
     if (!parsed.success) return c.json({ error: 'validation failed', detail: parsed.error.flatten() }, 400);
 
     const g = repo.getGroup(auth.groupJid)!;
+    const targetLanguages = parsed.data.targetLanguages ? [...new Set(parsed.data.targetLanguages)] : g.targetLanguages;
+    const autoRaw = parsed.data.autoTranslateLangs ? [...new Set(parsed.data.autoTranslateLangs)] : g.autoTranslateLangs;
     const next = {
       ...g,
-      targetLanguages: parsed.data.targetLanguages ? [...new Set(parsed.data.targetLanguages)] : g.targetLanguages,
+      targetLanguages,
       voiceTranslate: parsed.data.voiceTranslate ?? g.voiceTranslate,
       textTranslateOnMention: parsed.data.textTranslateOnMention ?? g.textTranslateOnMention,
-      autoTranslateLangs: parsed.data.autoTranslateLangs ? [...new Set(parsed.data.autoTranslateLangs)] : g.autoTranslateLangs,
+      // Auto-translate is a per-language flag on the group's language list,
+      // so it can't reference a language the group doesn't include.
+      autoTranslateLangs: autoRaw.filter((l) => targetLanguages.includes(l)),
       polishLevel: parsed.data.polishLevel ?? g.polishLevel,
       showSourceLabel: parsed.data.showSourceLabel ?? g.showSourceLabel,
       showProcessingReaction: parsed.data.showProcessingReaction ?? g.showProcessingReaction,

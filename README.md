@@ -28,6 +28,10 @@ Gemini 2.5 Flash for native-audio understanding in one round trip.
 
 - 🎙 **Voice translation** — native audio in, translations out, one Gemini call
 - 💬 **Text translation on `@mention`** — no spam in active chats
+- ⚡ **Auto-translate per language** — flag any of a group's languages as
+  "auto" and text written in it translates without an `@mention`. Non-Latin
+  scripts are matched locally; Latin-script text is confirmed against
+  Gemini's detected source language before the bot replies
 - 🌐 **N-language fan-out per group** — any ISO code Gemini supports
 - 🧹 **Polish levels (0–3)** — verbatim → cleaned-up → rewrite-for-clarity
 - 👤 **Per-user overrides** — speakers DM the bot for a magic link to a

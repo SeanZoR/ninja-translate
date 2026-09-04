@@ -241,6 +241,30 @@ button { font: inherit; cursor: pointer; }
   flex: 1;
 }
 
+/* ────── AUTO CHIP (per-language "translate without @mention") ────── */
+.auto-chip {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c-separator);
+  background: var(--c-fill);
+  color: var(--c-tertiary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.auto-chip.on {
+  background: var(--c-blue);
+  border-color: var(--c-blue);
+  color: #FFFFFF;
+}
+.auto-chip.on::before { content: "⚡ "; }
+
 /* ────── iOS TOGGLE SWITCH ────── */
 .toggle {
   position: relative;

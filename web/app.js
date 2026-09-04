@@ -27,12 +27,6 @@ const AVAILABLE_LANGUAGES = [
   { code: 'de', name: 'German',     flag: '🇩🇪' },
 ];
 
-// Script-distinct languages that can auto-trigger translation without a
-// mention. Mirror src/wa/scripts.ts SCRIPT_PATTERNS.
-const AUTO_TRANSLATE_LANGUAGES = AVAILABLE_LANGUAGES.filter((l) =>
-  ['th', 'he', 'ru', 'zh', 'my'].includes(l.code)
-);
-
 // Parse "en,th,he" → ["en","th","he"] (trims + lowercases + dedupes).
 function parseLangCsv(s) {
   return Array.from(new Set(
@@ -60,11 +54,20 @@ function app() {
     openModeSavedAt: null,
 
     AVAILABLE_LANGUAGES,
-    AUTO_TRANSLATE_LANGUAGES,
     toggleLang(arr, code) {
       const i = arr.indexOf(code);
       if (i >= 0) arr.splice(i, 1);
       else arr.push(code);
+    },
+    // Merged picker: `incl` is the group's language list, `auto` the subset
+    // that translates without an @mention. Dropping a language drops its
+    // auto flag too.
+    toggleInclude(incl, auto, code) {
+      this.toggleLang(incl, code);
+      if (!incl.includes(code)) {
+        const i = auto.indexOf(code);
+        if (i >= 0) auto.splice(i, 1);
+      }
     },
 
     pg: {
@@ -112,6 +115,9 @@ function app() {
           this.forms[p.jid] = {
             label: p.subject || '',
             selectedLangs: ['en'],
+            autoLangs: [],
+            voiceTranslate: true,
+            textTranslateOnMention: true,
             polishLevel: 2,
             showSourceLabel: true,
             showProcessingReaction: false,
@@ -133,6 +139,9 @@ function app() {
         body: JSON.stringify({
           label: f.label,
           targetLanguages: target,
+          autoTranslateLangs: (f.autoLangs || []).filter(l => target.includes(l)),
+          voiceTranslate: !!f.voiceTranslate,
+          textTranslateOnMention: !!f.textTranslateOnMention,
           polishLevel: f.polishLevel,
           showSourceLabel: f.showSourceLabel,
           showProcessingReaction: f.showProcessingReaction,
@@ -185,6 +194,7 @@ function app() {
     async saveSettings() {
       if (this.settingsLangs.length === 0) return alert('Pick at least one language.');
       this.current.targetLanguages = this.settingsLangs.slice();
+      this.current.autoTranslateLangs = (this.current.autoTranslateLangs || []).filter(l => this.settingsLangs.includes(l));
       await this.saveGroup(this.current);
       this.modal = null;
       await this.refresh();

@@ -50,6 +50,8 @@ export function groupsRoutes(ctx: AdminCtx) {
     const parsed = groupSchema.parse({ ...body, jid });
     repo.upsertGroup({
       ...parsed,
+      // Auto-translate flags only make sense for the group's own languages.
+      autoTranslateLangs: parsed.autoTranslateLangs.filter((l) => parsed.targetLanguages.includes(l)),
       lastTranslatedAt: null,
       createdAt: new Date().toISOString(),
     });

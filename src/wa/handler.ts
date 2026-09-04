@@ -210,7 +210,10 @@ export async function handleMessage(sock: WASocket, msg: WAMessage, ctx: Handler
       console.log('[wa.recv] text mention with empty body → translating quoted message');
       translateText = quotedText;
     }
-    await handleText(sock, msg, group, translateText, { senderJid, senderName, waMessageId });
+    await handleText(sock, msg, group, translateText, {
+      senderJid, senderName, waMessageId,
+      autoTriggered: !wasMentioned && autoTriggered,
+    });
     return;
   }
 }
@@ -386,7 +389,7 @@ async function handleText(
   msg: WAMessage,
   group: Group,
   text: string,
-  meta: { senderJid: string | null; senderName: string | null; waMessageId: string },
+  meta: { senderJid: string | null; senderName: string | null; waMessageId: string; autoTriggered?: boolean },
 ): Promise<void> {
   if (effectiveProcessingReaction(group, meta.senderJid)) {
     await react(sock, msg, REACT_PROCESSING);
@@ -401,6 +404,14 @@ async function handleText(
   } catch (err) {
     console.error('[gemini]', err);
     await react(sock, msg, REACT_ERROR);
+    return;
+  }
+
+  // Auto-triggered text was only a script match (Latin letters could be any
+  // of several languages). Now that Gemini has detected the real source
+  // language, stay silent if the group didn't opt that language in.
+  if (meta.autoTriggered && result.sourceLang && !group.autoTranslateLangs.includes(result.sourceLang)) {
+    console.log(`[wa.recv] auto-trigger dropped (detected=${result.sourceLang} not in ${JSON.stringify(group.autoTranslateLangs)})`);
     return;
   }
 

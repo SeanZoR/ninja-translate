@@ -23,12 +23,6 @@ const AVAILABLE_LANGUAGES = [
   { code: 'de', name: 'German',     flag: '🇩🇪' },
 ];
 
-// Languages whose script is distinct enough to auto-detect without a mention.
-// Mirror src/wa/scripts.ts SCRIPT_PATTERNS.
-const AUTO_TRANSLATE_LANGUAGES = AVAILABLE_LANGUAGES.filter((l) =>
-  ['th', 'he', 'ru', 'zh', 'my'].includes(l.code)
-);
-
 const POLISH_OPTIONS = [
   { value: 0, title: 'Verbatim',         sub: 'Keep ums and false starts as spoken.' },
   { value: 1, title: 'Light cleanup',    sub: 'Drop obvious filler sounds.' },
@@ -44,7 +38,6 @@ function tokenFromUrl() {
 function groupPage() {
   return {
     AVAILABLE_LANGUAGES,
-    AUTO_TRANSLATE_LANGUAGES,
     POLISH_OPTIONS,
 
     state: 'loading',                 // 'loading' | 'ready' | 'expired'
@@ -105,11 +98,19 @@ function groupPage() {
 
     toggleLang(code) {
       const i = this.f.targetLanguages.indexOf(code);
-      if (i >= 0) this.f.targetLanguages.splice(i, 1);
-      else this.f.targetLanguages.push(code);
+      if (i >= 0) {
+        this.f.targetLanguages.splice(i, 1);
+        // Auto is a flag on an included language — dropping the language
+        // drops its auto flag too.
+        const j = this.f.autoTranslateLangs.indexOf(code);
+        if (j >= 0) this.f.autoTranslateLangs.splice(j, 1);
+      } else {
+        this.f.targetLanguages.push(code);
+      }
     },
 
     toggleAutoLang(code) {
+      if (!this.f.targetLanguages.includes(code)) return;
       const i = this.f.autoTranslateLangs.indexOf(code);
       if (i >= 0) this.f.autoTranslateLangs.splice(i, 1);
       else this.f.autoTranslateLangs.push(code);

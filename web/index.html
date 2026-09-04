@@ -58,22 +58,32 @@
               <input type="text" x-model="forms[p.jid].label" placeholder="e.g., Smith family" required />
             </label>
             <div class="lang-picker-wrap">
-              <span class="lang-picker-label">Languages spoken in this group</span>
+              <span class="lang-picker-label">Languages spoken in this group <small>(click to include · auto = translate without @mention)</small></span>
               <div class="lang-picker">
                 <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
-                  <button type="button"
-                    class="lang-pill"
-                    :class="{selected: forms[p.jid].selectedLangs.includes(lang.code)}"
-                    @click="toggleLang(forms[p.jid].selectedLangs, lang.code)">
-                    <span x-text="lang.flag"></span>
-                    <span x-text="lang.name"></span>
-                    <span class="lang-pill-code" x-text="lang.code"></span>
-                  </button>
+                  <div class="lang-item" :class="{selected: forms[p.jid].selectedLangs.includes(lang.code)}">
+                    <button type="button"
+                      class="lang-pill"
+                      :class="{selected: forms[p.jid].selectedLangs.includes(lang.code)}"
+                      @click="toggleInclude(forms[p.jid].selectedLangs, forms[p.jid].autoLangs, lang.code)">
+                      <span x-text="lang.flag"></span>
+                      <span x-text="lang.name"></span>
+                      <span class="lang-pill-code" x-text="lang.code"></span>
+                    </button>
+                    <button type="button"
+                      class="lang-auto"
+                      x-show="forms[p.jid].selectedLangs.includes(lang.code)"
+                      :class="{on: forms[p.jid].autoLangs.includes(lang.code)}"
+                      title="Translate messages written in this language without an @mention"
+                      @click="toggleLang(forms[p.jid].autoLangs, lang.code)">auto</button>
+                  </div>
                 </template>
               </div>
             </div>
             <details>
               <summary>Advanced</summary>
+              <label class="row"><input type="checkbox" x-model="forms[p.jid].voiceTranslate" /> Translate voice</label>
+              <label class="row"><input type="checkbox" x-model="forms[p.jid].textTranslateOnMention" /> Translate text on @mention</label>
               <label>Polish level <small>(voice only - cleans up the transcript before translating)</small>
                 <select x-model.number="forms[p.jid].polishLevel">
                   <option value="0">0 - None (verbatim)</option>
@@ -331,38 +341,31 @@
               <input type="text" x-model="current.label" required />
             </label>
             <div class="lang-picker-wrap">
-              <span class="lang-picker-label">Languages</span>
+              <span class="lang-picker-label">Languages <small>(click to include · auto = translate without @mention)</small></span>
               <div class="lang-picker">
                 <template x-for="lang in AVAILABLE_LANGUAGES" :key="lang.code">
-                  <button type="button"
-                    class="lang-pill"
-                    :class="{selected: settingsLangs.includes(lang.code)}"
-                    @click="toggleLang(settingsLangs, lang.code)">
-                    <span x-text="lang.flag"></span>
-                    <span x-text="lang.name"></span>
-                    <span class="lang-pill-code" x-text="lang.code"></span>
-                  </button>
+                  <div class="lang-item" :class="{selected: settingsLangs.includes(lang.code)}">
+                    <button type="button"
+                      class="lang-pill"
+                      :class="{selected: settingsLangs.includes(lang.code)}"
+                      @click="toggleInclude(settingsLangs, current.autoTranslateLangs, lang.code)">
+                      <span x-text="lang.flag"></span>
+                      <span x-text="lang.name"></span>
+                      <span class="lang-pill-code" x-text="lang.code"></span>
+                    </button>
+                    <button type="button"
+                      class="lang-auto"
+                      x-show="settingsLangs.includes(lang.code)"
+                      :class="{on: current.autoTranslateLangs.includes(lang.code)}"
+                      title="Translate messages written in this language without an @mention"
+                      @click="toggleLang(current.autoTranslateLangs, lang.code)">auto</button>
+                  </div>
                 </template>
               </div>
             </div>
             <label class="row"><input type="checkbox" x-model="current.enabled" /> Enabled</label>
             <label class="row"><input type="checkbox" x-model="current.voiceTranslate" /> Translate voice</label>
             <label class="row"><input type="checkbox" x-model="current.textTranslateOnMention" /> Translate text on @mention</label>
-            <div class="lang-picker-wrap">
-              <span class="lang-picker-label">Auto-translate without @mention <small>(text in these scripts translates on its own)</small></span>
-              <div class="lang-picker">
-                <template x-for="lang in AUTO_TRANSLATE_LANGUAGES" :key="'auto-' + lang.code">
-                  <button type="button"
-                    class="lang-pill"
-                    :class="{selected: (current.autoTranslateLangs || []).includes(lang.code)}"
-                    @click="toggleLang(current.autoTranslateLangs, lang.code)">
-                    <span x-text="lang.flag"></span>
-                    <span x-text="lang.name"></span>
-                    <span class="lang-pill-code" x-text="lang.code"></span>
-                  </button>
-                </template>
-              </div>
-            </div>
             <label>Polish level <small>(voice only - cleans up the transcript before translating)</small>
               <select x-model.number="current.polishLevel">
                 <option value="0">0 - None (verbatim)</option>
